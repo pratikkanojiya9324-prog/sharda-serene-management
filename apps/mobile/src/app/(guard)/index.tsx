@@ -1,13 +1,88 @@
-import { Pressable, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, Pressable, Text, View } from 'react-native';
 
+import { useGuardSociety } from '@/lib/guardSociety';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 
-// Placeholder: the real guard screens are built in a later task.
+type Row = {
+  id: string;
+  name: string;
+  status: string;
+  created_at: string;
+  flats: { number: string; towers: { name: string } | null } | null;
+};
+
 export default function GuardHome() {
+  const router = useRouter();
+  const { societyId, error: societyError } = useGuardSociety();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!societyId) return;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { data, error: err } = await supabase
+      .from('visits')
+      .select('id, name, status, created_at, flats(number, towers(name))')
+      .eq('society_id', societyId)
+      .gte('created_at', startOfDay.toISOString())
+      .order('created_at', { ascending: false });
+    if (err) setError(err.message);
+    else setRows((data ?? []) as unknown as Row[]);
+  }, [societyId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  // Keep the list fresh while the screen is mounted.
+  useEffect(() => {
+    if (!societyId) return;
+    const channel = supabase
+      .channel(`visits-${societyId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'visits', filter: `society_id=eq.${societyId}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [societyId, load]);
+
   return (
-    <View style={ui.screen}>
-      <Text style={ui.title}>Guard home</Text>
+    <View style={[ui.screen, { justifyContent: 'flex-start' }]}>
+      <Pressable style={ui.button} onPress={() => router.push('/new-visit')}>
+        <Text style={ui.buttonText}>New visitor</Text>
+      </Pressable>
+      <Pressable style={[ui.button, { backgroundColor: '#374151' }]} onPress={() => router.push('/pass')}>
+        <Text style={ui.buttonText}>Enter pass code</Text>
+      </Pressable>
+      {societyError || error ? <Text style={ui.error}>{societyError ?? error}</Text> : null}
+      <FlatList
+        data={rows}
+        keyExtractor={(r) => r.id}
+        ListEmptyComponent={<Text style={ui.body}>No visitors yet today.</Text>}
+        renderItem={({ item }) => (
+          <Pressable
+            style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: '#eee' }}
+            onPress={() => router.push({ pathname: '/visit/[id]', params: { id: item.id } })}
+          >
+            <Text style={ui.body}>
+              {item.name} — {item.flats?.towers?.name} {item.flats?.number}
+            </Text>
+            <Text style={ui.secondaryText}>
+              {item.status.replace(/_/g, ' ')} · {new Date(item.created_at).toLocaleTimeString()}
+            </Text>
+          </Pressable>
+        )}
+      />
       <Pressable style={ui.secondary} onPress={() => supabase.auth.signOut()}>
         <Text style={ui.secondaryText}>Sign out</Text>
       </Pressable>
