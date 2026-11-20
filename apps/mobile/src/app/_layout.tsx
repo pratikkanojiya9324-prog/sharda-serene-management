@@ -8,6 +8,7 @@ import { notificationTarget } from '@/lib/notificationRoute';
 import { bootstrapSignedInUser } from '@/lib/postLogin';
 import { registerPushToken, type PushStatus } from '@/lib/push';
 import { PushStatusContext } from '@/lib/pushStatus';
+import { SessionContext } from '@/lib/sessionContext';
 import type { Role } from '@/lib/session';
 import { signOut } from '@/lib/signOut';
 import { supabase } from '@/lib/supabase';
@@ -111,13 +112,15 @@ export default function RootLayout() {
   }
 
   return (
+    <SessionContext.Provider value={session}>
     <PushStatusContext.Provider value={pushStatus}>
       <Stack screenOptions={{ headerShown: false }}>
+        {/* "/" must exist for everyone: the app always opens there. */}
+        <Stack.Screen name="index" />
         <Stack.Protected guard={!session}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
         <Stack.Protected guard={!!session}>
-          <Stack.Screen name="index" />
           <Stack.Screen name="(guard)" />
           <Stack.Screen name="(resident)" />
           <Stack.Screen name="no-access" />
@@ -136,5 +139,6 @@ export default function RootLayout() {
         </View>
       ) : null}
     </PushStatusContext.Provider>
+    </SessionContext.Provider>
   );
 }
