@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Society Gate",
-    "slug": "pratik",
+    "slug": "harda-serene-app",
     "owner": "pratik9324s-team",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,7 +20,12 @@
     },
     "plugins": [
       "expo-router",
-      ["expo-image-picker", { "cameraPermission": "Allow Society Gate to take photos of visitors." }],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Society Gate to take photos of visitors."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -29,11 +34,27 @@
           "imageWidth": 76
         }
       ],
-      ["expo-notifications", { "color": "#208AEF", "icon": "./assets/images/android-icon-monochrome.png" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#208AEF",
+          "icon": "./assets/images/android-icon-monochrome.png"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "ab455a18-d888-4e41-9c95-162aa143b5a0"
+      }
     }
   }
 }
