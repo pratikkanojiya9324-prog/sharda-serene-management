@@ -1,6 +1,6 @@
 -- Migration 0012: notices, complaints, bills (RPC-only writes).
 begin;
-select plan(48);
+select plan(52);
 
 insert into societies (id, name) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Society A'),
@@ -128,12 +128,20 @@ select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-0000000
 select throws_ok($$insert into storage.objects (bucket_id, name) values ('notices', 'aaaaaaaa-0000-0000-0000-000000000000/n2.png')$$,
   '42501', null, 'resident cannot upload to notices');
 select is((select count(*)::int from storage.objects where bucket_id = 'notices'), 1, 'resident can read notice objects');
-select lives_ok($$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'aaaaaaaa-0000-0000-0000-000000000000/c.jpg')$$,
-  'resident uploads complaint photo');
-select throws_ok($$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'bbbbbbbb-0000-0000-0000-000000000000/c.jpg')$$,
+select lives_ok($$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'aaaaaaaa-0000-0000-0000-000000000000/aaaaaaaa-0000-0000-0000-0000000000f1/c.jpg')$$,
+  'flat 1 resident uploads into own flat folder');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'aaaaaaaa-0000-0000-0000-000000000000/aaaaaaaa-0000-0000-0000-0000000000f2/c.jpg')$$,
+  '42501', null, 'flat 1 cannot upload into flat 2 folder');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'bbbbbbbb-0000-0000-0000-000000000000/bbbbbbbb-0000-0000-0000-0000000000f1/c.jpg')$$,
   '42501', null, 'resident cannot upload complaint photo to another society');
 select throws_ok($$insert into storage.objects (bucket_id, name) values ('complaint-photos', 'nope/c.jpg')$$,
   '42501', null, 'non-uuid folder denied without cast error');
+select throws_ok($$select create_complaint('aaaaaaaa-0000-0000-0000-0000000000f1', 'other', 'x', 'aaaaaaaa-0000-0000-0000-000000000000/aaaaaaaa-0000-0000-0000-0000000000f2/c.jpg')$$,
+  'P0001', 'invalid_photo_path', 'complaint cannot point at another flat photo path');
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e102","role":"authenticated"}', true);
+select is((select count(*)::int from storage.objects where bucket_id = 'complaint-photos'), 0, 'flat 2 cannot see flat 1 photo');
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000ad01","role":"authenticated"}', true);
+select is((select count(*)::int from storage.objects where bucket_id = 'complaint-photos'), 1, 'admin sees complaint photos');
 
 select * from finish();
 rollback;

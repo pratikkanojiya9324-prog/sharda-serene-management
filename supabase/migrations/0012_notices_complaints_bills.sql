@@ -152,24 +152,34 @@ using (
   end
 );
 
-create policy complaint_photos_member_insert on storage.objects
+-- Complaint photos live under {society_id}/{flat_id}/...: only that flat's
+-- residents (and admins, for reads) may touch them.
+create policy complaint_photos_flat_insert on storage.objects
 for insert to authenticated
 with check (
   bucket_id = 'complaint-photos'
   and case
     when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      then public.is_member(((storage.foldername(name))[1])::uuid)
+     and (storage.foldername(name))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.is_flat_resident(((storage.foldername(name))[2])::uuid)
+       and exists (
+         select 1 from public.flats f
+         where f.id = ((storage.foldername(name))[2])::uuid
+           and f.society_id = ((storage.foldername(name))[1])::uuid
+       )
     else false
   end
 );
 
-create policy complaint_photos_member_select on storage.objects
+create policy complaint_photos_select on storage.objects
 for select to authenticated
 using (
   bucket_id = 'complaint-photos'
   and case
     when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      then public.is_member(((storage.foldername(name))[1])::uuid)
+      then public.has_role(((storage.foldername(name))[1])::uuid, 'admin')
+       or ((storage.foldername(name))[2] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+           and public.is_flat_resident(((storage.foldername(name))[2])::uuid))
     else false
   end
 );
@@ -286,7 +296,7 @@ begin
   if p_description is null or btrim(p_description) = '' then
     raise exception 'invalid_description';
   end if;
-  if p_photo_path is not null and p_photo_path not like v_society::text || '/%' then
+  if p_photo_path is not null and p_photo_path not like v_society::text || '/' || p_flat_id::text || '/%' then
     raise exception 'invalid_photo_path';
   end if;
   v_name := public.clean_actor_name(p_actor_name);
