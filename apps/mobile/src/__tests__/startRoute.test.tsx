@@ -22,8 +22,8 @@ jest.mock('@/lib/push', () => ({ registerPushToken: jest.fn() }));
 jest.mock('@/lib/signOut', () => ({ signOut: jest.fn() }));
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const RootLayout = require('./_layout').default;
-const Index = require('./index').default;
+const RootLayout = require('../app/_layout').default;
+const Index = require('../app/index').default;
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 function Stub({ label }: { label: string }) {
