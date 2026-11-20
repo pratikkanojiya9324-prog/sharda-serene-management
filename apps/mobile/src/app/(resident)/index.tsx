@@ -1,26 +1,36 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Database } from '@society-gate/shared';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 
+import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { VisitRow } from '@/components/VisitRow';
+import { getActorName } from '@/lib/actor';
+import { friendlyError } from '@/lib/errors';
+import { formatTime } from '@/lib/format';
 import { usePushStatus } from '@/lib/pushStatus';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
 import { signOut } from '@/lib/signOut';
+import { VISIT_PURPOSE } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
-import { ui } from '@/lib/ui';
+import { Banner, Button, Card, EmptyState, Header, Screen, type IconName } from '@/theme/components';
+import { space, type, useTheme } from '@/theme/tokens';
 
 type Visit = Database['public']['Tables']['visits']['Row'];
 
 export default function ResidentHome() {
   const router = useRouter();
-  const { flat, loading, error: flatError } = useResidentFlat();
+  const { colors } = useTheme();
+  const { flat, loading, error: flatError, reload } = useResidentFlat();
   const pushStatus = usePushStatus();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [actor, setActor] = useState<string | null>(null);
   const flatId = flat?.id ?? null;
 
   const load = useCallback(async () => {
+    setActor(await getActorName());
     if (!flatId) return;
     const { data, error: err } = await supabase
       .from('visits')
@@ -28,18 +38,13 @@ export default function ResidentHome() {
       .eq('flat_id', flatId)
       .order('created_at', { ascending: false })
       .limit(20);
-    if (err) setError(err.message);
+    if (err) setError(friendlyError(err.message));
     else {
       setError(null);
       setVisits(data ?? []);
     }
   }, [flatId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
+  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
 
   // New / changed requests for this flat appear without pull-to-refresh.
   useEffect(() => {
@@ -51,6 +56,7 @@ export default function ResidentHome() {
         { event: '*', schema: 'public', table: 'visits', filter: `flat_id=eq.${flatId}` },
         (payload) => {
           const row = payload.new as Visit;
+          if (!row?.id) return;
           setVisits((cur) => {
             const rest = cur.filter((v) => v.id !== row.id);
             return [row, ...rest].sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -63,110 +69,135 @@ export default function ResidentHome() {
     };
   }, [flatId]);
 
-  if (loading) {
+  if (!loading && !flat) {
     return (
-      <View style={ui.screen}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-  if (!flat) {
-    return (
-      <View style={ui.screen}>
-        <Text style={ui.body}>{flatError ?? 'No flat is linked to your account yet. Ask your admin.'}</Text>
-        <Pressable style={ui.secondary} onPress={() => signOut()}>
-          <Text style={ui.secondaryText}>Sign out</Text>
-        </Pressable>
-      </View>
+      <Screen>
+        <EmptyState
+          icon="home-outline"
+          tone="warning"
+          title="No flat linked"
+          message={flatError ?? 'This account is not linked to a flat yet. Ask the society office.'}
+          action={
+            <View style={{ gap: space.sm }}>
+              <Button title="Try again" icon="refresh" onPress={reload} />
+              <Button title="Log out" icon="log-out-outline" variant="ghost" onPress={() => signOut()} />
+            </View>
+          }
+        />
+      </Screen>
     );
   }
 
-  const pending = visits.filter((v) => v.status === 'pending');
-  const recent = visits.filter((v) => v.status !== 'pending').slice(0, 10);
+  const pending = visits.filter((v) => v.status === 'pending' && !v.manual_outcome);
+  const recent = visits.filter((v) => !pending.includes(v)).slice(0, 10);
+  const open = (id: string) => router.push({ pathname: '/(resident)/request/[id]', params: { id } });
 
   return (
-    <FlatList
-      contentContainerStyle={{ padding: 16, gap: 10, backgroundColor: '#fff' }}
-      data={[...pending, ...recent]}
-      keyExtractor={(v) => v.id}
-      refreshing={refreshing}
-      onRefresh={async () => {
-        setRefreshing(true);
-        await load();
-        setRefreshing(false);
-      }}
-      ListHeaderComponent={
-        <View style={{ gap: 12, marginBottom: 8 }}>
-          {pushStatus && pushStatus !== 'ok' ? <NotificationsOffBanner /> : null}
-          <Text style={ui.title}>Flat {flat.label}</Text>
-          <FlatSwitcher />
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            <NavButton label="Passes" onPress={() => router.push('/(resident)/passes')} />
-            <NavButton label="Household" onPress={() => router.push('/(resident)/household')} />
-            <NavButton label="History" onPress={() => router.push('/(resident)/history')} />
-          </View>
-          {error ? <Text style={ui.error}>{error}</Text> : null}
-          <Text style={[ui.body, { fontWeight: '700' }]}>
-            {pending.length ? `Waiting for you (${pending.length})` : 'No pending requests'}
+    <Screen scroll padded={false} edges={[]} refreshing={refreshing} onRefresh={onRefresh}>
+      <Header
+        variant="hero"
+        icon="home"
+        overline={flat?.label ?? 'Society Gate'}
+        title={actor ? `Hi, ${actor}` : 'Welcome home'}
+        subtitle={
+          pending.length
+            ? `${pending.length} visitor${pending.length > 1 ? 's' : ''} waiting at the gate`
+            : 'Visitors at the gate show up here'
+        }
+      />
+      <View style={{ paddingHorizontal: space.xl, marginTop: -48, gap: space.md, paddingBottom: space.xxl }}>
+        <Card style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: space.lg }}>
+          <QuickAction icon="ticket" label="Guest pass" onPress={() => router.push('/(resident)/passes')} />
+          <QuickAction icon="time" label="History" onPress={() => router.push('/(resident)/history')} />
+          <QuickAction
+            icon="construct"
+            label="Complaint"
+            onPress={() => router.push('/(resident)/complaints/new')}
+          />
+        </Card>
+
+        <FlatSwitcher />
+
+        {pushStatus && pushStatus !== 'ok' ? (
+          <Card style={{ backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft }}>
+            <Banner text="Notifications are off — you may miss visitors" icon="notifications-off" />
+            <Button title="Turn on notifications" variant="danger" icon="settings-outline" onPress={() => Linking.openSettings()} />
+          </Card>
+        ) : null}
+
+        {error ? <Banner text={error} /> : null}
+
+        {!loaded || loading ? (
+          <Loading />
+        ) : (
+          <>
+            <SectionTitle title="Waiting for you" count={pending.length} />
+            {pending.length ? (
+              pending.map((v) => <PendingCard key={v.id} visit={v} onPress={() => open(v.id)} />)
+            ) : (
+              <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <IconBadge icon="checkmark-done" tone="success" />
+                <Text style={[type.body, { color: colors.textMuted, flex: 1 }]}>
+                  No one is waiting. You will get a notification when someone arrives.
+                </Text>
+              </Card>
+            )}
+
+            <SectionTitle
+              title="Recent visitors"
+              right={
+                <Pressable onPress={() => router.push('/(resident)/history')} hitSlop={8} accessibilityRole="button">
+                  <Text style={[type.label, { color: colors.primary }]}>See all</Text>
+                </Pressable>
+              }
+            />
+            {recent.length ? (
+              recent.map((v) => <VisitRow key={v.id} visit={v} onPress={() => open(v.id)} />)
+            ) : (
+              <EmptyState icon="people-outline" title="No visitors yet" message="Your flat's visitors will appear here." />
+            )}
+          </>
+        )}
+      </View>
+    </Screen>
+  );
+}
+
+function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({ alignItems: 'center', gap: space.sm, opacity: pressed ? 0.7 : 1, minWidth: 80 })}>
+      <IconBadge icon={icon} size={52} />
+      <Text style={[type.label, { color: colors.text }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function PendingCard({ visit, onPress }: { visit: Visit; onPress: () => void }) {
+  const { colors } = useTheme();
+  const purpose = VISIT_PURPOSE[visit.purpose];
+  return (
+    <Card
+      onPress={onPress}
+      accessibilityLabel={`${visit.name}, ${purpose.label}, tap to respond`}
+      style={{ borderColor: colors.accent, borderWidth: 1.5, backgroundColor: colors.accentSoft }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+        <IconBadge icon={purpose.icon} tone="accent" size={48} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[type.heading, { color: colors.text }]}>{visit.name}</Text>
+          <Text style={[type.caption, { color: colors.textMuted }]}>
+            {purpose.label} · {formatTime(visit.created_at)}
           </Text>
         </View>
-      }
-      renderItem={({ item }) => {
-        const isPending = item.status === 'pending';
-        return (
-          <Pressable
-            onPress={() => router.push({ pathname: '/(resident)/request/[id]', params: { id: item.id } })}
-            style={{
-              borderWidth: 1,
-              borderColor: isPending ? '#b45309' : '#ddd',
-              backgroundColor: isPending ? '#fffbeb' : '#fff',
-              borderRadius: 10,
-              padding: 14,
-            }}
-          >
-            <Text style={[ui.body, { fontWeight: '700' }]}>{item.name}</Text>
-            <Text style={ui.body}>
-              {item.purpose} · {isPending ? 'tap to respond' : item.status.replace(/_/g, ' ')} ·{' '}
-              {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Text>
-          </Pressable>
-        );
-      }}
-      ListFooterComponent={
-        <Pressable style={ui.secondary} onPress={() => signOut()}>
-          <Text style={ui.secondaryText}>Sign out</Text>
-        </Pressable>
-      }
-    />
-  );
-}
-
-function NotificationsOffBanner() {
-  return (
-    <View
-      style={{
-        backgroundColor: '#fef2f2',
-        borderColor: '#b91c1c',
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-      }}
-    >
-      <Text style={[ui.body, { flex: 1, color: '#b91c1c' }]}>Notifications are off — you may miss visitors</Text>
-      <Pressable style={[ui.button, { backgroundColor: '#b91c1c', paddingHorizontal: 18 }]} onPress={() => Linking.openSettings()}>
-        <Text style={ui.buttonText}>Fix</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function NavButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable style={[ui.button, { paddingHorizontal: 18 }]} onPress={onPress}>
-      <Text style={ui.buttonText}>{label}</Text>
-    </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={[type.label, { color: colors.warning }]}>Respond</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.warning} />
+        </View>
+      </View>
+    </Card>
   );
 }

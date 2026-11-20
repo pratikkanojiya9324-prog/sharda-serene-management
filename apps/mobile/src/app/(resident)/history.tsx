@@ -1,17 +1,16 @@
 import type { Database } from '@society-gate/shared';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
 
+import { Loading, useFocusLoad } from '@/components/resident';
+import { VisitRow } from '@/components/VisitRow';
 import { friendlyError } from '@/lib/errors';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
 import { supabase } from '@/lib/supabase';
-import { ui } from '@/lib/ui';
+import { Banner, Button, EmptyState, Header, Screen } from '@/theme/components';
 
 type Visit = Database['public']['Tables']['visits']['Row'];
 const PAGE = 30;
-
-const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -19,6 +18,7 @@ export default function HistoryScreen() {
   const flatId = flat?.id ?? null;
   const [visits, setVisits] = useState<Visit[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPage = useCallback(
@@ -38,52 +38,37 @@ export default function HistoryScreen() {
     },
     [flatId],
   );
+  const firstPage = useCallback(() => fetchPage(0), [fetchPage]);
+  const { loaded, refreshing, onRefresh } = useFocusLoad(firstPage, !!flatId);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchPage(0);
-    }, [fetchPage]),
-  );
+  async function more() {
+    setLoadingMore(true);
+    await fetchPage(visits.length);
+    setLoadingMore(false);
+  }
 
   return (
-    <FlatList
-      contentContainerStyle={{ padding: 16, gap: 10, backgroundColor: '#fff' }}
-      data={visits}
-      keyExtractor={(v) => v.id}
-      ListHeaderComponent={
-        <View style={{ gap: 10 }}>
-          <FlatSwitcher />
-          {error ? <Text style={ui.error}>{error}</Text> : null}
-          {!visits.length && !error ? <Text style={ui.body}>No visitors yet</Text> : null}
-        </View>
-      }
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => router.push({ pathname: '/(resident)/request/[id]', params: { id: item.id } })}
-          style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14 }}
-        >
-          <Text style={[ui.body, { fontWeight: '700' }]}>
-            {item.name}
-            {item.pass_id ? ' (pass)' : ''}
-          </Text>
-          <Text style={ui.body}>
-            {item.purpose} · {item.status.replace(/_/g, ' ')} · {new Date(item.created_at).toLocaleString()}
-          </Text>
-          {item.entry_at ? (
-            <Text style={ui.body}>
-              In {time(item.entry_at)}
-              {item.exit_at ? ` · Out ${time(item.exit_at)}` : ''}
-            </Text>
-          ) : null}
-        </Pressable>
+    <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
+      <Header title="Visitor history" subtitle={flat?.label} onBack={() => router.back()} />
+      <FlatSwitcher />
+      {error ? <Banner text={error} /> : null}
+      {!loaded ? (
+        <Loading />
+      ) : visits.length ? (
+        <>
+          {visits.map((v) => (
+            <VisitRow
+              key={v.id}
+              visit={v}
+              detailed
+              onPress={() => router.push({ pathname: '/(resident)/request/[id]', params: { id: v.id } })}
+            />
+          ))}
+          {hasMore ? <Button title="Load more" variant="secondary" icon="chevron-down" loading={loadingMore} onPress={more} /> : null}
+        </>
+      ) : (
+        <EmptyState icon="time-outline" title="No visitors yet" message="Everyone who comes to your flat will be listed here." />
       )}
-      ListFooterComponent={
-        hasMore ? (
-          <Pressable style={ui.secondary} onPress={() => fetchPage(visits.length)}>
-            <Text style={ui.secondaryText}>Load more</Text>
-          </Pressable>
-        ) : undefined
-      }
-    />
+    </Screen>
   );
 }

@@ -25,8 +25,36 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ type: 'pass_used', visitId: 'v2' }, ['resident'])).toBe('/(resident)/history');
   });
 
+  it('opens the notice for notice_posted', () => {
+    expect(notificationTarget({ type: 'notice_posted', id: 'n1' }, ['resident'])).toEqual({
+      pathname: '/(resident)/notices/[id]',
+      params: { id: 'n1' },
+    });
+  });
+
+  it('opens the complaint for complaint_updated', () => {
+    expect(notificationTarget({ type: 'complaint_updated', id: 'c1' }, ['resident'])).toEqual({
+      pathname: '/(resident)/complaints/[id]',
+      params: { id: 'c1' },
+    });
+  });
+
+  it.each(['bill_created', 'bill_paid'])('opens the bill for %s', (type) => {
+    expect(notificationTarget({ type, id: 'b1' }, ['resident'])).toEqual({
+      pathname: '/(resident)/bills/[id]',
+      params: { id: 'b1' },
+    });
+  });
+
+  it('ignores resident pushes for staff-only users and pushes without an id', () => {
+    expect(notificationTarget({ type: 'notice_posted', id: 'n1' }, ['admin'])).toBeNull();
+    expect(notificationTarget({ type: 'bill_paid' }, ['resident'])).toBeNull();
+    expect(notificationTarget({ type: 'complaint_updated', id: '' }, ['resident'])).toBeNull();
+  });
+
   it('ignores unknown or malformed data', () => {
     expect(notificationTarget({ type: 'other' }, ['resident'])).toBeNull();
+    expect(notificationTarget({ type: 'toString', id: 'x' }, ['resident'])).toBeNull();
     expect(notificationTarget({ type: 'visit_request' }, ['resident'])).toBeNull();
     expect(notificationTarget(null, ['resident'])).toBeNull();
   });

@@ -1,12 +1,17 @@
 import type { Database } from '@society-gate/shared';
-import { useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Share, Text, TextInput, View } from 'react-native';
+import { Share, Text, View } from 'react-native';
 
+import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { getActorName } from '@/lib/actor';
+import { actorLabel } from '@/lib/attribution';
 import { friendlyError } from '@/lib/errors';
+import { formatDateTime } from '@/lib/format';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
 import { supabase } from '@/lib/supabase';
-import { ui } from '@/lib/ui';
+import { Banner, Button, Card, EmptyState, Header, Input, Screen } from '@/theme/components';
+import { radius, space, type, useTheme } from '@/theme/tokens';
 
 type Pass = Database['public']['Tables']['passes']['Row'];
 
@@ -32,6 +37,8 @@ function defaultRange(): { from: string; to: string } {
 }
 
 export default function PassesScreen() {
+  const router = useRouter();
+  const { colors } = useTheme();
   const { flat } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const [passes, setPasses] = useState<Pass[]>([]);
@@ -52,12 +59,7 @@ export default function PassesScreen() {
     if (err) setError(friendlyError(err.message));
     else setPasses(data ?? []);
   }, [flatId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
+  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
 
   async function create() {
     if (!flatId) return;
@@ -71,6 +73,7 @@ export default function PassesScreen() {
       p_guest_name: guest.trim(),
       p_valid_from: from.toISOString(),
       p_valid_to: to.toISOString(),
+      p_actor_name: (await getActorName()) ?? undefined,
     });
     setBusy(false);
     if (err) return setError(friendlyError(err.message));
@@ -87,56 +90,81 @@ export default function PassesScreen() {
   }
 
   return (
-    <FlatList
-      contentContainerStyle={{ padding: 16, gap: 12, backgroundColor: '#fff' }}
-      data={passes}
-      keyExtractor={(p) => p.id}
-      ListHeaderComponent={
-        <View style={{ gap: 10, marginBottom: 8 }}>
-          <FlatSwitcher />
-          <Text style={[ui.body, { fontWeight: '700' }]}>New guest pass</Text>
-          <TextInput style={ui.input} placeholder="Guest name" value={guest} onChangeText={setGuest} />
-          <Text style={ui.body}>Valid from (YYYY-MM-DD HH:mm)</Text>
-          <TextInput style={ui.input} value={range.from} onChangeText={(from) => setRange((r) => ({ ...r, from }))} />
-          <Text style={ui.body}>Valid until (YYYY-MM-DD HH:mm)</Text>
-          <TextInput style={ui.input} value={range.to} onChangeText={(to) => setRange((r) => ({ ...r, to }))} />
-          {error ? <Text style={ui.error}>{error}</Text> : null}
-          <Pressable
-            style={[ui.button, (busy || !guest.trim() || !flatId) && ui.buttonDisabled]}
-            disabled={busy || !guest.trim() || !flatId}
-            onPress={create}
-          >
-            <Text style={ui.buttonText}>{busy ? 'Creating...' : 'Create pass'}</Text>
-          </Pressable>
-          <Text style={[ui.body, { fontWeight: '700', marginTop: 8 }]}>
-            {passes.length ? 'Active passes' : 'No active passes'}
-          </Text>
+    <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
+      <Header title="Guest passes" subtitle="Share a code; the guard lets your guest in" onBack={() => router.back()} />
+      <FlatSwitcher />
+
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <IconBadge icon="ticket" tone="accent" />
+          <Text style={[type.heading, { color: colors.text }]}>New guest pass</Text>
         </View>
-      }
-      renderItem={({ item }) => (
-        <View style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 14, gap: 6 }}>
-          <Text style={ui.body}>{item.guest_name}</Text>
-          <Text style={{ fontSize: 40, fontWeight: '800', letterSpacing: 6, color: '#111' }}>{item.code}</Text>
-          <Text style={ui.body}>
-            {new Date(item.valid_from).toLocaleString()} – {new Date(item.valid_to).toLocaleString()}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable
-              style={[ui.button, { flex: 1 }]}
-              onPress={() =>
-                Share.share({
-                  message: `Hi ${item.guest_name}, show this code at the gate: ${item.code} (valid until ${new Date(item.valid_to).toLocaleString()})`,
-                })
-              }
-            >
-              <Text style={ui.buttonText}>Share</Text>
-            </Pressable>
-            <Pressable style={[ui.button, { flex: 1, backgroundColor: '#b91c1c' }]} onPress={() => revoke(item.id)}>
-              <Text style={ui.buttonText}>Revoke</Text>
-            </Pressable>
-          </View>
-        </View>
+        <Input label="Guest name" icon="person-outline" placeholder="e.g. Priya" value={guest} onChangeText={setGuest} />
+        <Input
+          label="Valid from (YYYY-MM-DD HH:mm)"
+          icon="calendar-outline"
+          value={range.from}
+          onChangeText={(from) => setRange((r) => ({ ...r, from }))}
+        />
+        <Input
+          label="Valid until (YYYY-MM-DD HH:mm)"
+          icon="calendar-outline"
+          value={range.to}
+          onChangeText={(to) => setRange((r) => ({ ...r, to }))}
+        />
+        {error ? <Banner text={error} /> : null}
+        <Button title="Create pass" icon="add-circle" loading={busy} disabled={!guest.trim() || !flatId} onPress={create} />
+      </Card>
+
+      <SectionTitle title="Active passes" count={passes.length || undefined} />
+      {!loaded ? (
+        <Loading />
+      ) : passes.length ? (
+        passes.map((p) => (
+          <Card key={p.id}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[type.heading, { color: colors.text }]}>{p.guest_name}</Text>
+                <Text style={[type.caption, { color: colors.textMuted }]}>
+                  Created by {actorLabel(p.created_by_name, flat?.label)}
+                </Text>
+              </View>
+            </View>
+            <View
+              style={{
+                alignItems: 'center',
+                paddingVertical: space.lg,
+                borderRadius: radius.md,
+                backgroundColor: colors.primarySoft,
+                borderWidth: 1,
+                borderStyle: 'dashed',
+                borderColor: colors.primary,
+              }}>
+              <Text style={{ fontSize: 40, fontWeight: '800', letterSpacing: 8, color: colors.primary }} selectable>
+                {p.code}
+              </Text>
+            </View>
+            <Text style={[type.caption, { color: colors.textMuted, textAlign: 'center' }]}>
+              {formatDateTime(p.valid_from)} – {formatDateTime(p.valid_to)}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <Button
+                title="Share"
+                icon="share-social-outline"
+                style={{ flex: 1 }}
+                onPress={() =>
+                  Share.share({
+                    message: `Hi ${p.guest_name}, show this code at the gate: ${p.code} (valid until ${formatDateTime(p.valid_to)})`,
+                  })
+                }
+              />
+              <Button title="Revoke" icon="trash-outline" variant="danger" style={{ flex: 1 }} onPress={() => revoke(p.id)} />
+            </View>
+          </Card>
+        ))
+      ) : (
+        <EmptyState icon="ticket-outline" title="No active passes" message="Create one above when you expect a guest." />
       )}
-    />
+    </Screen>
   );
 }

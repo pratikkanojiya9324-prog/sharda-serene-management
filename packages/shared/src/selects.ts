@@ -9,8 +9,9 @@
 export const GUARD_TODAY_VISITS_SELECT =
   'id, name, status, created_at, flats!visits_flat_id_fkey(number, towers!flats_tower_id_fkey(name))' as const;
 
-/** mobile resident: the signed-in resident's own flats. */
-export const RESIDENT_FLATS_SELECT = 'flat_id, flats(number, towers!flats_tower_id_fkey(name))' as const;
+/** mobile resident: the signed-in flat account's flat(s), with building + wing for the label. */
+export const RESIDENT_FLATS_SELECT =
+  'flat_id, flats(number, society_id, towers!flats_tower_id_fkey(name, building))' as const;
 
 /** mobile resident household: who lives in the flat. */
 export const HOUSEHOLD_MEMBERS_SELECT = 'profile_id, profiles!flat_residents_profile_id_fkey(name, phone)' as const;
