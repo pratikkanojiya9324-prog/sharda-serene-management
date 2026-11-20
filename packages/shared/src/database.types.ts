@@ -325,6 +325,39 @@ isOneToOne: false
 "claim_invites":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"create_visit":
+{ Args: { "p_flat_id": string,"p_name": string,"p_phone": string,"p_photo_path": string,"p_purpose": Database["public"]['Enums']["visit_purpose"] }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"expire_stale_visits":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"flat_contacts":
+{ Args: { "p_flat_id": string }; Returns: {
+              "name": string,"phone": string
+            }[]
+                           },
 "has_role":
 { Args: { "p_role": Database["public"]['Enums']["member_role"],"p_society": string }; Returns: boolean
                            },
@@ -336,6 +369,109 @@ isOneToOne: false
                            },
 "is_member":
 { Args: { "p_society": string }; Returns: boolean
+                           },
+"mark_entry":
+{ Args: { "p_visit_id": string }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"mark_exit":
+{ Args: { "p_visit_id": string }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"record_manual_outcome":
+{ Args: { "p_outcome": Database["public"]['Enums']["manual_outcome"],"p_visit_id": string }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"respond_to_visit":
+{ Args: { "p_response": Database["public"]['Enums']["visit_status"],"p_visit_id": string }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"visit_has_app_users":
+{ Args: { "p_flat_id": string }; Returns: boolean
                            }
           }
           Enums: {
