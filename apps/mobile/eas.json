@@ -8,7 +8,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://cwhhmqkanviioxtmwoce.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_Es8dSJTjJ1lqFW99TRCZmQ_8AZDDKxX",
-        "EXPO_PUBLIC_SOCIETY_ID": ""
+        "EXPO_PUBLIC_SOCIETY_ID": "029ed50a-3347-472c-aef5-924c351ccc89"
       }
     },
     "preview": {
@@ -17,7 +17,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://cwhhmqkanviioxtmwoce.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_Es8dSJTjJ1lqFW99TRCZmQ_8AZDDKxX",
-        "EXPO_PUBLIC_SOCIETY_ID": ""
+        "EXPO_PUBLIC_SOCIETY_ID": "029ed50a-3347-472c-aef5-924c351ccc89"
       }
     },
     "production": {
