@@ -25,7 +25,7 @@ const ACTION_ERRORS: Record<string, string> = {
 };
 
 export default function VisitScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, photo } = useLocalSearchParams<{ id: string; photo?: string }>();
   // Realtime + re-fetch on (re)subscribe / foreground + 4 s poll while waiting.
   const { visit, error: loadError, applyVisit } = useLiveVisit(id, { pollWhilePending: true });
   const [noAppUsers, setNoAppUsers] = useState(false);
@@ -86,6 +86,10 @@ export default function VisitScreen() {
         {visit.purpose}
         {visit.manual_outcome ? ` · guard: ${visit.manual_outcome === 'allowed' ? 'allowed' : 'sent back'}` : ''}
       </Text>
+
+      {photo === 'failed' && !visit.photo_path ? (
+        <Text style={ui.error}>Photo not saved. The resident was still notified.</Text>
+      ) : null}
 
       <CallResident flatId={visit.flat_id} visible={showCall} noAppUsers={noAppUsers} />
 

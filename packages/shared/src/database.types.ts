@@ -482,6 +482,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"register_push_token":
+{ Args: { "p_platform": string,"p_token": string }; Returns: undefined
+                           },
 "respond_to_visit":
 { Args: { "p_response": Database["public"]['Enums']["visit_status"],"p_visit_id": string }; Returns: {
               "created_at": string,
@@ -523,6 +526,31 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "passes"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"set_visit_photo":
+{ Args: { "p_photo_path": string,"p_visit_id": string }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
         isOneToOne: true
         isSetofReturn: false
       } },

@@ -1,5 +1,4 @@
 import { normalizePhone } from '@society-gate/shared';
-import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -8,6 +7,7 @@ import { Image, Pressable, ScrollView, Text, TextInput } from 'react-native';
 import { useGuardSociety } from '@/lib/guardSociety';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
+import { attachVisitPhoto } from '@/lib/visitPhoto';
 
 const PURPOSES = ['delivery', 'guest', 'cab', 'service', 'other'] as const;
 type Purpose = (typeof PURPOSES)[number];
@@ -50,7 +50,7 @@ export default function NewVisit() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [purpose, setPurpose] = useState<Purpose>('guest');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +84,7 @@ export default function NewVisit() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
-    if (!result.canceled) setPhotoUri(result.assets[0].uri);
+    if (!result.canceled) setPhoto({ uri: result.assets[0].uri, width: result.assets[0].width });
   }
 
   async function submit() {
@@ -101,24 +101,29 @@ export default function NewVisit() {
     }
     setBusy(true);
     try {
-      let photoPath: string | null = null;
-      if (photoUri) {
-        const path = `${societyId}/${Crypto.randomUUID()}.jpg`;
-        const bytes = await fetch(photoUri).then((r) => r.arrayBuffer());
-        const up = await supabase.storage.from('visitor-photos').upload(path, bytes, { contentType: 'image/jpeg' });
-        if (up.error) throw up.error;
-        photoPath = path;
-      }
+      // Create the visit first so the residents' push goes out at once; the photo follows.
       const { data, error: err } = await supabase.rpc('create_visit', {
         p_flat_id: flatId,
         p_name: name.trim(),
         // Generated arg types are non-nullable, but the RPC accepts null for optional phone/photo.
         p_phone: e164 as string,
         p_purpose: purpose,
-        p_photo_path: photoPath as string,
+        p_photo_path: null as unknown as string,
       });
       if (err) throw err;
-      router.replace({ pathname: '/visit/[id]', params: { id: data.id } });
+      let photoFailed = false;
+      if (photo) {
+        try {
+          await attachVisitPhoto(data.id, societyId, photo);
+        } catch (e) {
+          console.warn('[visit] photo not saved', e);
+          photoFailed = true;
+        }
+      }
+      router.replace({
+        pathname: '/visit/[id]',
+        params: photoFailed ? { id: data.id, photo: 'failed' } : { id: data.id },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not create the visit');
     } finally {
@@ -155,9 +160,9 @@ export default function NewVisit() {
           <Chip key={p} label={p} selected={p === purpose} onPress={() => setPurpose(p)} />
         ))}
       </ChipRow>
-      {photoUri ? <Image source={{ uri: photoUri }} style={{ width: 160, height: 160, borderRadius: 8 }} /> : null}
+      {photo ? <Image source={{ uri: photo.uri }} style={{ width: 160, height: 160, borderRadius: 8 }} /> : null}
       <Pressable style={ui.secondary} onPress={takePhoto}>
-        <Text style={ui.secondaryText}>{photoUri ? 'Retake photo' : 'Take photo'}</Text>
+        <Text style={ui.secondaryText}>{photo ? 'Retake photo' : 'Take photo'}</Text>
       </Pressable>
       {error ? <Text style={ui.error}>{error}</Text> : null}
       <Pressable style={[ui.button, busy && ui.buttonDisabled]} disabled={busy} onPress={submit}>
