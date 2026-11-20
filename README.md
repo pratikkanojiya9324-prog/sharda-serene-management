@@ -100,13 +100,24 @@ npm run smoke                               # runs every app query that embeds r
      select vault.create_secret('<the-random-value>', 'notify_secret');
      ```
    To rotate it later, set the new value in both places (`select vault.update_secret((select id from vault.secrets where name = 'notify_secret'), '<new-value>');`). The function reads the database with the auto-provided `SUPABASE_SERVICE_ROLE_KEY`; you do not store that key anywhere.
-5. **Set up real SMS for phone login** (Authentication, Providers, Phone). Supabase supports Twilio, MessageBird, Textlocal and Vonage. SMS is billed per message by that provider, so budget for it. Keep **Confirm phone** turned ON: the app relies on a verified phone to claim invites.
+5. **Set up real SMS for phone login** (Authentication, Providers, Phone). Supabase supports Twilio, MessageBird, Textlocal and Vonage. SMS is billed per message by that provider, so budget for it. Keep **Confirm phone** turned ON: the app relies on a verified phone to claim invites. **For Indian numbers read "SMS login in India" below first: it takes days to weeks.**
 6. **Point the apps at production:** set `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile) and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (admin) to `https://<project-ref>.supabase.co` and the production anon key. Never put the service role key in either app.
 7. **Deploy the admin site:**
    ```
    npm run build -w apps/admin
    ```
    Upload `apps/admin/dist` to any static host (Vercel, Netlify, Cloudflare Pages...). Set the two `VITE_` variables in the host before building there.
+
+## SMS login in India (start early)
+
+Indian carriers drop SMS that are not registered on TRAI's DLT (Distributed Ledger Technology) platform. Without it, residents never get their OTP and cannot log in.
+
+1. **Register as an entity (Principal Entity)** on a DLT portal (Jio, Airtel, Vodafone Idea, BSNL...). You need the society's or your business's PAN/GST or registration documents. Approval takes from a few days to a few weeks.
+2. **Register a sender ID (header)**, e.g. `SOCGTE` (6 letters), for transactional/service messages.
+3. **Register the exact OTP template** as a content template of type service/transactional (OTP). The DLT template text must match, character for character, the SMS template set in Supabase (Authentication → Providers → Phone → SMS message; locally `template` under `[auth.sms]` in `supabase/config.toml`). The variable part is `{{ .Code }}` in Supabase and `{#var#}` in DLT. Example: Supabase `Your Society Gate login code is {{ .Code }}` ↔ DLT `Your Society Gate login code is {#var#}`. If they differ by a single character, carriers silently drop the SMS.
+4. **Give your SMS provider** the DLT entity ID, sender ID and template ID (Twilio, Vonage, MessageBird and Textlocal each have a DLT section). Send yourself a test OTP before onboarding anyone.
+5. **Raise the Auth SMS rate limit before onboarding day.** Supabase limits how many SMS the project sends per hour (Authentication → Rate Limits, "SMS sent"; locally `sms_sent` under `[auth.rate_limit]`). When a whole society installs the app on the same evening, the default limit is hit quickly and logins fail. Raise it for the day, then lower it again.
+6. **SMS pumping risk.** Attackers can request OTPs to premium or random numbers so that you pay for the SMS. Keep the rate limit only as high as you need, watch your provider's spend dashboard, set a spend alert or cap there, and turn off destinations you do not need (allow only India, +91, if your provider supports geo permissions). Only invited phones can finish logging in, but sending the OTP still costs money.
 
 ## Check notifications are working
 
