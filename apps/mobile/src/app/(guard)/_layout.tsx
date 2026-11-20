@@ -1,12 +1,9 @@
 import { Stack } from 'expo-router';
 
+import { useTheme } from '@/theme/tokens';
+
+// Each guard screen draws its own themed header (hero on Today, back row elsewhere).
 export default function GuardLayout() {
-  return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: 'Today' }} />
-      <Stack.Screen name="new-visit" options={{ title: 'New visitor' }} />
-      <Stack.Screen name="pass" options={{ title: 'Enter pass code' }} />
-      <Stack.Screen name="visit/[id]" options={{ title: 'Visit' }} />
-    </Stack>
-  );
+  const { colors } = useTheme();
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />;
 }

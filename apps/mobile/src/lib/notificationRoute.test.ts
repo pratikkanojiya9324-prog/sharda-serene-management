@@ -46,6 +46,18 @@ describe('notificationTarget', () => {
     });
   });
 
+  it('opens the admin complaint screen for complaint_created', () => {
+    const target = { pathname: '/(admin)/complaints/[id]', params: { id: 'c9' } };
+    expect(notificationTarget({ type: 'complaint_created', id: 'c9' }, ['admin'])).toEqual(target);
+    expect(notificationTarget({ type: 'complaint_created', id: 'c9' }, ['admin', 'resident'])).toEqual(target);
+  });
+
+  it('ignores complaint_created for non-admins and without an id', () => {
+    expect(notificationTarget({ type: 'complaint_created', id: 'c9' }, ['resident'])).toBeNull();
+    expect(notificationTarget({ type: 'complaint_created', id: 'c9' }, ['guard'])).toBeNull();
+    expect(notificationTarget({ type: 'complaint_created' }, ['admin'])).toBeNull();
+  });
+
   it('ignores resident pushes for staff-only users and pushes without an id', () => {
     expect(notificationTarget({ type: 'notice_posted', id: 'n1' }, ['admin'])).toBeNull();
     expect(notificationTarget({ type: 'bill_paid' }, ['resident'])).toBeNull();

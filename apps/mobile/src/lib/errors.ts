@@ -10,9 +10,16 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_body: 'Write a message first',
   invalid_photo_path: 'The photo could not be attached, try again',
   invalid_actor_name: 'Your name is too long — change it from More',
+  // admin actions
+  invalid_title: 'Give the notice a title',
+  invalid_attachment: 'The attachment could not be added, try again',
+  invalid_status: 'Choose a status',
+  invalid_payment_mode: 'Choose how the bill was paid',
+  already_paid: 'This bill is already marked paid',
+  'Network request failed': 'No internet connection, try again',
 };
 
 /** Maps an RPC error message (`error.message`) to resident-facing text. */
 export function friendlyError(code: string): string {
-  return ERROR_TEXT[code] ?? 'Something went wrong, try again';
+  return Object.hasOwn(ERROR_TEXT, code) ? ERROR_TEXT[code] : 'Something went wrong, try again';
 }

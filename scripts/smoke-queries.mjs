@@ -213,9 +213,29 @@ const today = check(
     .order('created_at', { ascending: false }),
   true,
 );
-if (today?.[0] && !today[0].flats?.towers?.name) {
+if (today?.[0] && (!today[0].flats?.towers?.name || !today[0].flats?.towers?.building)) {
   failures++;
-  console.error('FAIL guard  Today: embedded flats.towers.name missing');
+  console.error('FAIL guard  Today: embedded flats.towers.name/building missing');
+}
+// Flat picker (guard) and flat labels (in-app admin) page like the apps' fetchAll().
+for (const [who, client] of [
+  ['guard ', guard.client],
+  ['admin ', ac],
+]) {
+  const dir = check(
+    `${who} FlatPick   flats FLAT_DIRECTORY_SELECT`,
+    await client
+      .from('flats')
+      .select(sel('FLAT_DIRECTORY_SELECT', S.FLAT_DIRECTORY_SELECT))
+      .eq('society_id', societyId)
+      .order('id')
+      .range(0, 999),
+    true,
+  );
+  if (dir?.length && (!dir[0].towers?.building || !dir[0].towers?.name)) {
+    failures++;
+    console.error(`FAIL ${who} FlatPick: embedded towers.building/name missing`);
+  }
 }
 
 // --- flat account (mobile) ------------------------------------------------------

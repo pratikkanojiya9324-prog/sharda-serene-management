@@ -1,4 +1,4 @@
-import { formatDate, formatPeriod, formatRupees, localDateString, timeAgo } from './format';
+import { formatDate, formatPeriod, formatPhone, formatRupees, localDateString, timeAgo } from './format';
 
 describe('formatRupees', () => {
   it('formats whole rupees with a rupee sign and separators', () => {
@@ -46,5 +46,16 @@ describe('timeAgo', () => {
     [new Date(2026, 9, 1, 12, 0), '1 Oct 2026'],
   ])('%p -> %p', (d, out) => {
     expect(timeAgo(d.toISOString(), now)).toBe(out);
+  });
+});
+
+describe('formatPhone', () => {
+  it('spaces an Indian E.164 number', () => {
+    expect(formatPhone('+919876543210')).toBe('+91 98765 43210');
+  });
+
+  it('leaves anything else as it is', () => {
+    expect(formatPhone('022 2345 6789')).toBe('022 2345 6789');
+    expect(formatPhone('+14155550100')).toBe('+14155550100');
   });
 });

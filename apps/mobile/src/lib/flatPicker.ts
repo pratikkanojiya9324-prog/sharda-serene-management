@@ -26,13 +26,32 @@ export function naturalCompare(a: string, b: string): number {
   return pa.length - pb.length;
 }
 
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+/** A flat row as read with FLAT_DIRECTORY_SELECT: towers.building = "Building 1", towers.name = wing. */
+export type DirectoryRow = { id: string; number: string; towers: { building: string; name: string } | null };
+
+export type FlatTree = { building: string; wings: { wing: string; flats: { id: string; number: string }[] }[] }[];
 
 /**
- * Flats whose number contains what the guard typed (ignoring case, spaces and
- * dashes, so "a101" finds "A-101"), in natural order.
+ * Building → Wing → Flat for the guard's pickers, each level in natural order
+ * ("Building 2" before "Building 10", 12 before 101). Flats without a
+ * building/wing are left out.
  */
-export function filterFlats<T extends { number: string }>(flats: T[], query: string): T[] {
-  const q = normalize(query);
-  return flats.filter((f) => normalize(f.number).includes(q)).sort((a, b) => naturalCompare(a.number, b.number));
+export function groupFlats(rows: readonly DirectoryRow[]): FlatTree {
+  const buildings = new Map<string, Map<string, { id: string; number: string }[]>>();
+  for (const r of rows) {
+    if (!r.towers) continue;
+    const wings = buildings.get(r.towers.building) ?? new Map();
+    buildings.set(r.towers.building, wings);
+    const flats = wings.get(r.towers.name) ?? [];
+    wings.set(r.towers.name, flats);
+    flats.push({ id: r.id, number: r.number });
+  }
+  return [...buildings.entries()]
+    .sort(([a], [b]) => naturalCompare(a, b))
+    .map(([building, wings]) => ({
+      building,
+      wings: [...wings.entries()]
+        .sort(([a], [b]) => naturalCompare(a, b))
+        .map(([wing, flats]) => ({ wing, flats: flats.sort((a, b) => naturalCompare(a.number, b.number)) })),
+    }));
 }

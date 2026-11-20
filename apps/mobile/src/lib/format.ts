@@ -78,3 +78,9 @@ export function timeAgo(value: string, now: Date = new Date()): string {
   if (days < 7) return `${days} days ago`;
   return formatDate(value);
 }
+
+/** "+91 98765 43210" for an Indian E.164 number; anything else unchanged. */
+export function formatPhone(phone: string): string {
+  const m = /^\+91(\d{5})(\d{5})$/.exec(phone);
+  return m ? `+91 ${m[1]} ${m[2]}` : phone;
+}

@@ -5,9 +5,9 @@
 // `table!constraint(...)` or PostgREST answers PGRST201 (ambiguous embed).
 // Keep this file free of imports: the smoke script loads it directly with Node.
 
-/** mobile guard home: today's visits with flat + tower. */
+/** mobile guard home: today's visits with flat + building/wing (for "B1-A-101"). */
 export const GUARD_TODAY_VISITS_SELECT =
-  'id, name, status, created_at, flats!visits_flat_id_fkey(number, towers!flats_tower_id_fkey(name))' as const;
+  'id, name, purpose, status, manual_outcome, created_at, flats!visits_flat_id_fkey(number, towers!flats_tower_id_fkey(name, building))' as const;
 
 /** mobile resident: the signed-in flat account's flat(s), with building + wing for the label. */
 export const RESIDENT_FLATS_SELECT =
@@ -31,3 +31,6 @@ export const ADMIN_FLAT_LINKS_SELECT = 'id, flat_id, profile_id, flats!inner(soc
 /** admin Visitor log rows. */
 export const ADMIN_VISIT_LOG_SELECT =
   'id, created_at, name, purpose, status, manual_outcome, flat_id, photo_path, entry_at, exit_at' as const;
+
+/** mobile guard flat picker + in-app admin flat labels: every flat with building + wing. */
+export const FLAT_DIRECTORY_SELECT = 'id, number, towers!flats_tower_id_fkey(building, name)' as const;

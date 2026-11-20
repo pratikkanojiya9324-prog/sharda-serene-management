@@ -1,4 +1,4 @@
-import { filterFlats, naturalCompare } from './flatPicker';
+import { groupFlats, naturalCompare } from './flatPicker';
 
 const sorted = (xs: string[]) => [...xs].sort(naturalCompare);
 
@@ -21,25 +21,45 @@ describe('naturalCompare', () => {
   });
 });
 
-describe('filterFlats', () => {
-  const flats = [{ number: 'A-110' }, { number: 'A-101' }, { number: 'A-12' }, { number: 'B-101' }];
+describe('groupFlats', () => {
+  const row = (id: string, building: string, wing: string, number: string) => ({
+    id,
+    number,
+    towers: { building, name: wing },
+  });
+  const rows = [
+    row('f1', 'Building 2', 'A', '101'),
+    row('f2', 'Building 1', 'B', '102'),
+    row('f3', 'Building 1', 'A', '110'),
+    row('f4', 'Building 1', 'A', '12'),
+    row('f5', 'Building 10', 'A', '101'),
+    row('f6', 'Building 1', 'A', '101'),
+    { id: 'orphan', number: '999', towers: null },
+  ];
 
-  it('returns everything, naturally sorted, for an empty query', () => {
-    expect(filterFlats(flats, '').map((f) => f.number)).toEqual(['A-12', 'A-101', 'A-110', 'B-101']);
+  it('groups flats by building, then wing, all in natural order', () => {
+    expect(groupFlats(rows)).toEqual([
+      {
+        building: 'Building 1',
+        wings: [
+          {
+            wing: 'A',
+            flats: [
+              { id: 'f4', number: '12' },
+              { id: 'f6', number: '101' },
+              { id: 'f3', number: '110' },
+            ],
+          },
+          { wing: 'B', flats: [{ id: 'f2', number: '102' }] },
+        ],
+      },
+      { building: 'Building 2', wings: [{ wing: 'A', flats: [{ id: 'f1', number: '101' }] }] },
+      { building: 'Building 10', wings: [{ wing: 'A', flats: [{ id: 'f5', number: '101' }] }] },
+    ]);
   });
 
-  it('matches digits anywhere in the number', () => {
-    expect(filterFlats(flats, '101').map((f) => f.number)).toEqual(['A-101', 'B-101']);
-  });
-
-  it('ignores case, spaces and dashes', () => {
-    expect(filterFlats(flats, 'b 101').map((f) => f.number)).toEqual(['B-101']);
-    expect(filterFlats(flats, 'a1').map((f) => f.number)).toEqual(['A-12', 'A-101', 'A-110']);
-  });
-
-  it('does not mutate the input', () => {
-    const copy = [...flats];
-    filterFlats(flats, '');
-    expect(flats).toEqual(copy);
+  it('skips flats without a building/wing and returns [] for no flats', () => {
+    expect(groupFlats([{ id: 'x', number: '1', towers: null }])).toEqual([]);
+    expect(groupFlats([])).toEqual([]);
   });
 });
