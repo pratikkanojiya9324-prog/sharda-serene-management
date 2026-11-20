@@ -18,7 +18,6 @@ const BANNER: Record<VisitStatus, { text: string; color: string }> = {
   expired: { text: 'No response', color: '#6b7280' },
 };
 
-
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export default function VisitScreen() {
