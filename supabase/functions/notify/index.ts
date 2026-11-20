@@ -1,15 +1,14 @@
 // Database Webhook target: INSERT on public.visits -> Expo push to the flat's residents.
+// Auth: the trigger sends `Authorization: Bearer <NOTIFY_SECRET>` (gateway JWT check
+// is off for this function, see supabase/config.toml). DB access uses the
+// auto-provided SUPABASE_SERVICE_ROLE_KEY.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isAuthorized } from "./auth.ts";
+import { sendBatch } from "./expo.ts";
 import { buildMessages, chunk, type ExpoMessage, type VisitRow } from "./push.ts";
 
-const EXPO_URL = "https://exp.host/--/api/v2/push/send";
-
-type ExpoTicket = { status: "ok" | "error"; details?: { error?: string } };
-
 Deno.serve(async (req) => {
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (!serviceKey || bearer !== serviceKey) {
+  if (!isAuthorized(req.headers.get("Authorization"), Deno.env.get("NOTIFY_SECRET"))) {
     return new Response("unauthorized", { status: 401 });
   }
 
@@ -23,7 +22,7 @@ Deno.serve(async (req) => {
     return Response.json({ skipped: "not notifiable" });
   }
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // Current residents: flat link AND a resident membership in the flat's society.
   const { data: links, error: linkErr } = await supabase
@@ -43,20 +42,15 @@ Deno.serve(async (req) => {
   const messages = buildMessages(visit, (tokenRows ?? []).map((t) => t.token));
 
   const dead: string[] = [];
+  let failedBatches = 0;
   for (const batch of chunk<ExpoMessage>(messages, 100)) {
-    const res = await fetch(EXPO_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(batch),
-    });
-    const body = await res.json().catch(() => null);
-    console.log("expo push", res.status, JSON.stringify(body));
-    const tickets: ExpoTicket[] = body?.data ?? [];
+    const { ok, tickets } = await sendBatch(batch);
+    if (!ok) failedBatches++;
     tickets.forEach((t, i) => {
       if (t.status === "error" && t.details?.error === "DeviceNotRegistered") dead.push(batch[i].to);
     });
   }
   if (dead.length > 0) await supabase.from("push_tokens").delete().in("token", dead);
 
-  return Response.json({ sent: messages.length, removed: dead.length });
+  return Response.json({ sent: messages.length, failedBatches, removed: dead.length });
 });

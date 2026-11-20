@@ -42,7 +42,7 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
    ```
    npm run dev:secrets
    ```
-   **Run this after every `db reset`**, because a reset wipes Vault.
+   This stores `notify_url` and a fresh random `notify_secret` in Vault and writes the same secret to `supabase/functions/.env` as `NOTIFY_SECRET` (gitignored), which the function checks. **Run this after every `db reset`**, because a reset wipes Vault, and restart `functions serve` afterwards.
 5. Serve the `notify` Edge Function (leave it running in its own terminal):
    ```
    npx supabase functions serve notify
@@ -88,11 +88,18 @@ npm run smoke                               # runs every app query that embeds r
    ```
    npx supabase functions deploy notify
    ```
-4. **Create the two Vault secrets** so the database can call the function. In the Supabase dashboard open the SQL editor and run:
-   ```sql
-   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/notify', 'notify_url');
-   select vault.create_secret('<service-role-key>', 'service_role_key');
-   ```
+   `supabase/config.toml` turns the gateway JWT check off for `notify` (`[functions.notify] verify_jwt = false`) because the database calls it with a shared secret instead. If you deploy some other way, pass `--no-verify-jwt`.
+4. **Create the notify shared secret** so the database can call the function. Generate one long random value (for example `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) and store the **same value** in two places:
+   - as the function's secret:
+     ```
+     npx supabase secrets set NOTIFY_SECRET=<the-random-value>
+     ```
+   - in Vault, together with the function URL (dashboard → SQL editor):
+     ```sql
+     select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/notify', 'notify_url');
+     select vault.create_secret('<the-random-value>', 'notify_secret');
+     ```
+   To rotate it later, set the new value in both places (`select vault.update_secret((select id from vault.secrets where name = 'notify_secret'), '<new-value>');`). The function reads the database with the auto-provided `SUPABASE_SERVICE_ROLE_KEY`; you do not store that key anywhere.
 5. **Set up real SMS for phone login** (Authentication, Providers, Phone). Supabase supports Twilio, MessageBird, Textlocal and Vonage. SMS is billed per message by that provider, so budget for it. Keep **Confirm phone** turned ON: the app relies on a verified phone to claim invites.
 6. **Point the apps at production:** set `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile) and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (admin) to `https://<project-ref>.supabase.co` and the production anon key. Never put the service role key in either app.
 7. **Deploy the admin site:**
@@ -100,6 +107,24 @@ npm run smoke                               # runs every app query that embeds r
    npm run build -w apps/admin
    ```
    Upload `apps/admin/dist` to any static host (Vercel, Netlify, Cloudflare Pages...). Set the two `VITE_` variables in the host before building there.
+
+## Check notifications are working
+
+A guard logs a visitor → the database trigger POSTs to the `notify` function → the function sends to Expo → Expo delivers through Firebase. To see where it stops:
+
+1. **Did the database call the function?** In the SQL editor:
+   ```sql
+   select id, status_code, content, error_msg, timed_out, created
+   from net._http_response
+   order by created desc
+   limit 10;
+   ```
+   - No new rows after a visit: the Vault secrets `notify_url` / `notify_secret` are missing (`select name from vault.secrets;`).
+   - `status_code` 401: `notify_secret` in Vault and `NOTIFY_SECRET` of the function differ (or the function was deployed with JWT verification on).
+   - `status_code` 200 with `{"sent":0}`: nobody in that flat has a push token (they have not logged in on a real build, or denied notifications).
+   - `failedBatches` greater than 0: Expo did not accept the batch even after one retry; see the function logs.
+2. **What did Expo answer?** Dashboard → Edge Functions → `notify` → **Logs** (locally, the `functions serve` terminal). Each batch logs `expo push <status> <body>`. Tickets with `DeviceNotRegistered` are removed automatically; `InvalidCredentials` means the FCM V1 key is missing in EAS (see "Push notifications on Android (Firebase)").
+3. **Phone side:** notifications allowed for Society Gate, battery set to "Unrestricted". The resident home screen shows a red "Notifications are off" banner when the app could not register for push.
 
 ## Building the Android app
 
