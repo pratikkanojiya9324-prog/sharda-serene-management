@@ -1,14 +1,12 @@
-import type { Database } from '@society-gate/shared';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { friendlyError } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
+import { useLiveVisit } from '@/lib/useLiveVisit';
 import { useVisitPhoto } from '@/lib/useVisitPhoto';
-
-type Visit = Database['public']['Tables']['visits']['Row'];
 type Response = 'approved' | 'denied' | 'leave_at_gate';
 
 const RESULT: Record<string, string> = {
@@ -20,36 +18,11 @@ const RESULT: Record<string, string> = {
 
 export default function RequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [visit, setVisit] = useState<Visit | null>(null);
+  // Realtime + re-fetch on (re)subscribe and when the app returns to the foreground.
+  const { visit, error: loadError, refetch, applyVisit } = useLiveVisit(id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const photoUrl = useVisitPhoto(visit?.photo_path);
-
-  useEffect(() => {
-    let active = true;
-    supabase
-      .from('visits')
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(({ data, error: err }) => {
-        if (!active) return;
-        if (err) setError(friendlyError(err.code === 'PGRST116' ? 'not_authorized' : err.message));
-        else setVisit((cur) => cur ?? data);
-      });
-    const channel = supabase
-      .channel(`resident-visit-${id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'visits', filter: `id=eq.${id}` },
-        (payload) => setVisit(payload.new as Visit),
-      )
-      .subscribe();
-    return () => {
-      active = false;
-      supabase.removeChannel(channel);
-    };
-  }, [id]);
 
   async function respond(response: Response) {
     setError(null);
@@ -62,13 +35,13 @@ export default function RequestScreen() {
     if (err) {
       setError(friendlyError(err.message));
       // Refresh so the screen shows the answer that won.
-      const fresh = await supabase.from('visits').select('*').eq('id', id).single();
-      if (fresh.data) setVisit(fresh.data);
-    } else if (data) setVisit(data);
+      await refetch();
+    } else if (data) applyVisit(data);
   }
 
   if (!visit) {
-    return <View style={ui.screen}>{error ? <Text style={ui.error}>{error}</Text> : <ActivityIndicator />}</View>;
+    const text = loadError ? friendlyError(loadError.code === 'PGRST116' ? 'not_authorized' : loadError.message) : null;
+    return <View style={ui.screen}>{text ? <Text style={ui.error}>{text}</Text> : <ActivityIndicator />}</View>;
   }
 
   const open = visit.status === 'pending';

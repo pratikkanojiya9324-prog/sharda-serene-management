@@ -1,4 +1,4 @@
-import { shouldShowCallButton, type Database, type VisitStatus } from '@society-gate/shared';
+import { shouldShowCallButton, type VisitStatus } from '@society-gate/shared';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -6,8 +6,8 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { CallResident } from '@/components/CallResident';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
-
-type Visit = Database['public']['Tables']['visits']['Row'];
+import { useLiveVisit } from '@/lib/useLiveVisit';
+import type { Visit } from '@/lib/visitMerge';
 
 const BANNER: Record<VisitStatus, { text: string; color: string }> = {
   pending: { text: 'Waiting', color: '#b45309' },
@@ -26,41 +26,24 @@ const ACTION_ERRORS: Record<string, string> = {
 
 export default function VisitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [visit, setVisit] = useState<Visit | null>(null);
+  // Realtime + re-fetch on (re)subscribe / foreground + 4 s poll while waiting.
+  const { visit, error: loadError, applyVisit } = useLiveVisit(id, { pollWhilePending: true });
   const [noAppUsers, setNoAppUsers] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initial load + Realtime updates for this row.
+  const flatId = visit?.flat_id ?? null;
   useEffect(() => {
+    if (!flatId) return;
     let active = true;
-    supabase
-      .from('visits')
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(async ({ data, error: err }) => {
-        if (!active) return;
-        if (err) return setError(err.message);
-        // Keep a newer Realtime row if one already arrived.
-        setVisit((cur) => cur ?? data);
-        const r = await supabase.rpc('visit_has_app_users', { p_flat_id: data.flat_id });
-        if (active && !r.error) setNoAppUsers(!r.data);
-      });
-    const channel = supabase
-      .channel(`visit-${id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'visits', filter: `id=eq.${id}` },
-        (payload) => setVisit(payload.new as Visit),
-      )
-      .subscribe();
+    supabase.rpc('visit_has_app_users', { p_flat_id: flatId }).then((r) => {
+      if (active && !r.error) setNoAppUsers(!r.data);
+    });
     return () => {
       active = false;
-      supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [flatId]);
 
   // Re-evaluate the "call resident" button every second.
   useEffect(() => {
@@ -74,12 +57,14 @@ export default function VisitScreen() {
     const { data, error: err } = await action();
     setBusy(false);
     if (err) setError(ACTION_ERRORS[err.message] ?? err.message);
-    else if (data) setVisit(data);
+    else if (data) applyVisit(data);
   }
 
   if (!visit) {
     return (
-      <View style={ui.screen}>{error ? <Text style={ui.error}>{error}</Text> : <ActivityIndicator />}</View>
+      <View style={ui.screen}>
+        {loadError ? <Text style={ui.error}>{loadError.message}</Text> : <ActivityIndicator />}
+      </View>
     );
   }
 
