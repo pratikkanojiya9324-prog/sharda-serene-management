@@ -1,3 +1,6 @@
+// LOCAL ONLY: reads the local stack from `npx supabase status` and creates a
+// visit with the demo guard - never point it at the test or production project.
+//
 // Smoke test: run every select string the apps use against the LOCAL Supabase
 // stack, signed in with the demo accounts, and fail on any error (e.g. PGRST201
 // "more than one relationship was found" when an embed lacks its FK hint).
@@ -87,6 +90,7 @@ const guard = await signIn(staffEmail('guard1', societyId), 'Guard@123', 'guard1
 const resident = await signIn(flatEmail(flatId), 'Sharda@1A101', 'flat B1-A-101');
 
 // --- admin website --------------------------------------------------------------
+// Paged lists run exactly as the site's fetchAll() pages them (.order('id').range()).
 const ac = admin.client;
 check(
   'admin  App        memberships ADMIN_SOCIETIES_SELECT',
@@ -101,7 +105,7 @@ check(
 check('admin  App        profiles name', await ac.from('profiles').select('name').eq('id', admin.userId), true);
 const labels = check(
   'admin  Flats      flats ADMIN_FLAT_LABELS_SELECT',
-  await ac.from('flats').select(sel('ADMIN_FLAT_LABELS_SELECT', A.ADMIN_FLAT_LABELS_SELECT)).eq('society_id', societyId),
+  await ac.from('flats').select(sel('ADMIN_FLAT_LABELS_SELECT', A.ADMIN_FLAT_LABELS_SELECT)).eq('society_id', societyId).order('id').range(0, 999),
   true,
 );
 if (labels?.length && !labels[0].towers?.building) {
@@ -110,12 +114,12 @@ if (labels?.length && !labels[0].towers?.building) {
 }
 check(
   'admin  Flats      flat_residents ADMIN_FLAT_ACCOUNTS_SELECT',
-  await ac.from('flat_residents').select(sel('ADMIN_FLAT_ACCOUNTS_SELECT', A.ADMIN_FLAT_ACCOUNTS_SELECT)).eq('flats.society_id', societyId),
+  await ac.from('flat_residents').select(sel('ADMIN_FLAT_ACCOUNTS_SELECT', A.ADMIN_FLAT_ACCOUNTS_SELECT)).eq('flats.society_id', societyId).order('id').range(0, 999),
   true,
 );
 check(
   'admin  Flats      family_members ADMIN_FAMILY_SELECT',
-  await ac.from('family_members').select(sel('ADMIN_FAMILY_SELECT', A.ADMIN_FAMILY_SELECT)).eq('society_id', societyId).order('created_at'),
+  await ac.from('family_members').select(sel('ADMIN_FAMILY_SELECT', A.ADMIN_FAMILY_SELECT)).eq('society_id', societyId).order('created_at').order('id').range(0, 999),
   true,
 );
 const staff = check(
@@ -154,7 +158,7 @@ if (complaints?.length) {
 }
 check(
   'admin  Bills      bills ADMIN_BILLS_SELECT',
-  await ac.from('bills').select(sel('ADMIN_BILLS_SELECT', A.ADMIN_BILLS_SELECT)).eq('society_id', societyId),
+  await ac.from('bills').select(sel('ADMIN_BILLS_SELECT', A.ADMIN_BILLS_SELECT)).eq('society_id', societyId).order('id').range(0, 999),
   true,
 );
 check(

@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader,
 import FlatImport from '../components/FlatImport';
 import { callAccounts } from '../lib/accounts';
 import { friendlyError } from '../lib/errors';
+import { fetchAll } from '../lib/fetchAll';
 import { useFlats, type FlatInfo } from '../lib/flats';
 import { ADMIN_FAMILY_SELECT, ADMIN_FLAT_ACCOUNTS_SELECT } from '../lib/selects';
 import { SOCIETY_ID, supabase } from '../lib/supabase';
@@ -31,8 +32,12 @@ export default function Flats() {
 
   const loadDetails = useCallback(async () => {
     const [m, a] = await Promise.all([
-      supabase.from('family_members').select(ADMIN_FAMILY_SELECT).eq('society_id', SOCIETY_ID).order('created_at'),
-      supabase.from('flat_residents').select(ADMIN_FLAT_ACCOUNTS_SELECT).eq('flats.society_id', SOCIETY_ID),
+      fetchAll((from, to) =>
+        supabase.from('family_members').select(ADMIN_FAMILY_SELECT).eq('society_id', SOCIETY_ID).order('created_at').order('id').range(from, to),
+      ),
+      fetchAll((from, to) =>
+        supabase.from('flat_residents').select(ADMIN_FLAT_ACCOUNTS_SELECT).eq('flats.society_id', SOCIETY_ID).order('id').range(from, to),
+      ),
     ]);
     const err = m.error ?? a.error;
     if (err) return setError(err.message);
@@ -222,6 +227,7 @@ function PasswordModal({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter pressed again while saving
     if (!flat) return;
     if (password.length < 6) return setError('Password must be at least 6 characters.');
     if (password !== confirm) return setError('The passwords do not match.');

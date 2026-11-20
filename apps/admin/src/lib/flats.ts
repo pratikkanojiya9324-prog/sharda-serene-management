@@ -1,6 +1,7 @@
 // Flat labels ("B1-A-101") for the admin pages, loaded once per page.
 import { useCallback, useEffect, useState } from 'react';
 import { flatLabel } from '@society-gate/shared';
+import { fetchAll } from './fetchAll';
 import { ADMIN_FLAT_LABELS_SELECT } from './selects';
 import { SOCIETY_ID, supabase } from './supabase';
 
@@ -21,7 +22,9 @@ export function useFlats() {
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const { data, error: err } = await supabase.from('flats').select(ADMIN_FLAT_LABELS_SELECT).eq('society_id', SOCIETY_ID);
+    const { data, error: err } = await fetchAll((from, to) =>
+      supabase.from('flats').select(ADMIN_FLAT_LABELS_SELECT).eq('society_id', SOCIETY_ID).order('id').range(from, to),
+    );
     setLoading(false);
     if (err) return setError(err.message);
     setError(null);

@@ -176,6 +176,7 @@ function CreateNoticeModal({ open, onClose, onCreated }: { open: boolean; onClos
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter pressed again while saving
     if (!title.trim()) return setError(friendlyError('invalid_title'));
     if (!body.trim()) return setError(friendlyError('invalid_body'));
     setBusy(true);

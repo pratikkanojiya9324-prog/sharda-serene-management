@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { useToast } from './Toast';
-import { Button, Modal, Pill, Table, Textarea, td, th } from './ui';
+import { Button, ConfirmDialog, Modal, Pill, Table, Textarea, td, th } from './ui';
 import { callAccounts } from '../lib/accounts';
 import { csvErrorMessage, downloadCsv, parseMembersCsv, toCsv } from '../lib/csv';
 import { friendlyError } from '../lib/errors';
@@ -23,8 +23,13 @@ export default function FlatImport({ open, onClose, onImported }: { open: boolea
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [results, setResults] = useState<ImportResultRow[] | null>(null);
+  const [downloaded, setDownloaded] = useState(false);
+  // What to do once the admin confirms leaving without downloading generated passwords.
+  const [pendingLeave, setPendingLeave] = useState<'close' | 'reset' | null>(null);
 
   function reset() {
+    setDownloaded(false);
+    setPendingLeave(null);
     setText('');
     setError(null);
     setResults(null);
@@ -35,6 +40,13 @@ export default function FlatImport({ open, onClose, onImported }: { open: boolea
     if (progress) return; // never abandon an import half-way
     reset();
     onClose();
+  }
+
+  /** Leaving the results loses generated passwords: confirm unless they were downloaded. */
+  function leave(action: 'close' | 'reset') {
+    if (results && generatedPasswords(results).length > 1 && !downloaded) return setPendingLeave(action);
+    if (action === 'close') close();
+    else reset();
   }
 
   async function onFile(file: File | undefined) {
@@ -77,15 +89,15 @@ export default function FlatImport({ open, onClose, onImported }: { open: boolea
     <Modal
       open={open}
       title="Import flats & members"
-      onClose={close}
+      onClose={() => leave('close')}
       wide
       footer={
         results ? (
           <>
-            <Button variant="secondary" onClick={reset}>
+            <Button variant="secondary" onClick={() => leave('reset')}>
               Import another file
             </Button>
-            <Button onClick={close}>Done</Button>
+            <Button onClick={() => leave('close')}>Done</Button>
           </>
         ) : (
           <>
@@ -134,7 +146,10 @@ export default function FlatImport({ open, onClose, onImported }: { open: boolea
             )}
             <span className="flex-1" />
             {generated.length > 1 && (
-              <Button variant="accent" icon="download" onClick={() => downloadCsv('generated-passwords.csv', toCsv(generated))}>
+              <Button variant="accent" icon="download" onClick={() => {
+                  downloadCsv('generated-passwords.csv', toCsv(generated));
+                  setDownloaded(true);
+                }}>
                 Download generated passwords ({generated.length - 1})
               </Button>
             )}
@@ -176,6 +191,15 @@ export default function FlatImport({ open, onClose, onImported }: { open: boolea
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!pendingLeave}
+        title="Generated passwords not downloaded"
+        message="The generated passwords are shown only once. If you leave now, those flats will need a password reset."
+        confirmLabel="Leave without downloading"
+        danger
+        onConfirm={() => (pendingLeave === 'close' ? close() : reset())}
+        onClose={() => setPendingLeave(null)}
+      />
     </Modal>
   );
 }

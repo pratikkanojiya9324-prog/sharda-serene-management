@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Pill, SearchInput, Select, Stat, Table, Tabs, Textarea, td, th } from '../components/ui';
 import { csvErrorMessage, downloadCsv, parseBillsCsv, toCsv } from '../lib/csv';
 import { friendlyError } from '../lib/errors';
+import { fetchAll } from '../lib/fetchAll';
 import { flatKey, useFlats, type FlatInfo } from '../lib/flats';
 import { currentMonth, dateOnly, inr, monthName } from '../lib/format';
 import { ADMIN_BILLS_SELECT } from '../lib/selects';
@@ -34,9 +35,14 @@ export default function Bills() {
   const [generating, setGenerating] = useState(false);
   const [paying, setPaying] = useState<Bill | null>(null);
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
     if (!month) return;
-    const { data, error: err } = await supabase.from('bills').select(ADMIN_BILLS_SELECT).eq('society_id', SOCIETY_ID).eq('period', `${month}-01`);
+    const seq = ++loadSeq.current;
+    const { data, error: err } = await fetchAll((from, to) =>
+      supabase.from('bills').select(ADMIN_BILLS_SELECT).eq('society_id', SOCIETY_ID).eq('period', `${month}-01`).order('id').range(from, to),
+    );
+    if (seq !== loadSeq.current) return; // a newer month was requested meanwhile
     if (err) return setError(err.message);
     setError(null);
     setBills(data ?? []);
@@ -210,6 +216,7 @@ function GenerateBillsModal({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter pressed again while saving
     setError(null);
     if (!month) return setError(friendlyError('invalid_period'));
     if (!due) return setError(friendlyError('invalid_due_date'));
@@ -341,6 +348,7 @@ function MarkPaidModal({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter pressed again while saving
     if (!bill) return;
     setBusy(true);
     const { data, error: err } = await supabase.rpc('mark_bill_paid', {

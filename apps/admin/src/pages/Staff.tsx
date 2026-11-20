@@ -176,6 +176,7 @@ function CreateStaffModal({ open, onClose, onCreated }: { open: boolean; onClose
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter pressed again while saving
     const u = username.trim().toLowerCase();
     if (!isValidUsername(u)) return setError(friendlyError('invalid_username'));
     if (!name.trim() || name.trim().length > 60) return setError(friendlyError('invalid_name'));
@@ -243,6 +244,7 @@ function ResetStaffPasswordModal({ member, onClose, onDone }: { member: StaffMem
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter pressed again while saving
     if (!member) return;
     if (password.length < 6) return setError(friendlyError('invalid_password'));
     setBusy(true);

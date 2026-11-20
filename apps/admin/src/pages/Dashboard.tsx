@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Card, EmptyState, ErrorBanner, PageHeader, Pill, Stat } from '../components/ui';
+import { fetchAll } from '../lib/fetchAll';
 import { useFlats } from '../lib/flats';
 import { currentMonth, dateTime, inr, monthName, titleCase } from '../lib/format';
 import { ADMIN_COMPLAINTS_SELECT, ADMIN_NOTICES_SELECT } from '../lib/selects';
@@ -29,7 +30,9 @@ export default function Dashboard() {
     start.setHours(0, 0, 0, 0);
     const [open, bills, visits, notices, complaints] = await Promise.all([
       supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('society_id', SOCIETY_ID).neq('status', 'resolved'),
-      supabase.from('bills').select('amount, status').eq('society_id', SOCIETY_ID).eq('period', `${month}-01`),
+      fetchAll((from, to) =>
+        supabase.from('bills').select('id, amount, status').eq('society_id', SOCIETY_ID).eq('period', `${month}-01`).order('id').range(from, to),
+      ),
       supabase.from('visits').select('id', { count: 'exact', head: true }).eq('society_id', SOCIETY_ID).gte('created_at', start.toISOString()),
       supabase.from('notices').select(ADMIN_NOTICES_SELECT).eq('society_id', SOCIETY_ID).order('created_at', { ascending: false }).limit(4),
       supabase.from('complaints').select(ADMIN_COMPLAINTS_SELECT).eq('society_id', SOCIETY_ID).neq('status', 'resolved').order('created_at', { ascending: false }).limit(5),

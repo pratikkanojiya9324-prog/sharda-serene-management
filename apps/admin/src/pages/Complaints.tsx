@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { Button, Card, EmptyState, ErrorBanner, Modal, PageHeader, Pill, SearchInput, Select, Table, Textarea, td, th } from '../components/ui';
@@ -8,6 +8,9 @@ import { dateTime, titleCase } from '../lib/format';
 import { ADMIN_COMPLAINT_COMMENTS_SELECT, ADMIN_COMPLAINTS_SELECT } from '../lib/selects';
 import { COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, COMPLAINT_STATUS_STYLE, type ComplaintCategory, type ComplaintStatus } from '../lib/status';
 import { SOCIETY_ID, supabase } from '../lib/supabase';
+
+/** Newest complaints loaded per filter; older ones need a narrower filter. */
+const LIMIT = 500;
 
 interface Complaint {
   id: string;
@@ -38,11 +41,14 @@ export default function Complaints({ userId, userName }: { userId: string; userN
   const [search, setSearch] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
-    let q = supabase.from('complaints').select(ADMIN_COMPLAINTS_SELECT).eq('society_id', SOCIETY_ID).order('created_at', { ascending: false }).limit(500);
+    const seq = ++loadSeq.current;
+    let q = supabase.from('complaints').select(ADMIN_COMPLAINTS_SELECT).eq('society_id', SOCIETY_ID).order('created_at', { ascending: false }).limit(LIMIT);
     if (status) q = q.eq('status', status);
     if (category) q = q.eq('category', category);
     const { data, error: err } = await q;
+    if (seq !== loadSeq.current) return; // filters changed meanwhile
     if (err) return setError(err.message);
     setError(null);
     setRows(data ?? []);
@@ -119,6 +125,9 @@ export default function Complaints({ userId, userName }: { userId: string; userN
               );
             })}
           </Table>
+        )}
+        {rows?.length === LIMIT && (
+          <p className="px-5 py-3 text-xs text-slate-500">Showing the latest {LIMIT}. Filter by status or category to see older complaints.</p>
         )}
       </Card>
       <ComplaintDetail
