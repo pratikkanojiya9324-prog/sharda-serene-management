@@ -1,3 +1,5 @@
+import { GUARD_TODAY_VISITS_SELECT } from '@society-gate/shared';
+import type { QueryData } from '@supabase/supabase-js';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
@@ -6,13 +8,15 @@ import { useGuardSociety } from '@/lib/guardSociety';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 
-type Row = {
-  id: string;
-  name: string;
-  status: string;
-  created_at: string;
-  flats: { number: string; towers: { name: string } | null } | null;
-};
+function todayVisits(societyId: string, since: string) {
+  return supabase
+    .from('visits')
+    .select(GUARD_TODAY_VISITS_SELECT)
+    .eq('society_id', societyId)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false });
+}
+type Row = QueryData<ReturnType<typeof todayVisits>>[number];
 
 export default function GuardHome() {
   const router = useRouter();
@@ -24,14 +28,9 @@ export default function GuardHome() {
     if (!societyId) return;
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const { data, error: err } = await supabase
-      .from('visits')
-      .select('id, name, status, created_at, flats(number, towers(name))')
-      .eq('society_id', societyId)
-      .gte('created_at', startOfDay.toISOString())
-      .order('created_at', { ascending: false });
+    const { data, error: err } = await todayVisits(societyId, startOfDay.toISOString());
     if (err) setError(err.message);
-    else setRows((data ?? []) as unknown as Row[]);
+    else setRows(data ?? []);
   }, [societyId]);
 
   useFocusEffect(

@@ -1,3 +1,4 @@
+import { RESIDENT_FLATS_SELECT } from '@society-gate/shared';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -22,8 +23,6 @@ const ResidentFlatContext = createContext<Ctx>({
   error: null,
 });
 
-type FlatRow = { flat_id: string; flats: { number: string; towers: { name: string } | null } | null };
-
 /** Loads the signed-in resident's own flats (always filtered by profile_id; RLS also shows co-residents). */
 export function ResidentFlatProvider({ children }: { children: ReactNode }) {
   const [flats, setFlats] = useState<MyFlat[]>([]);
@@ -45,13 +44,13 @@ export function ResidentFlatProvider({ children }: { children: ReactNode }) {
       }
       const { data, error: err } = await supabase
         .from('flat_residents')
-        .select('flat_id, flats(number, towers(name))')
+        .select(RESIDENT_FLATS_SELECT)
         .eq('profile_id', userId)
         .order('created_at');
       if (!active) return;
       if (err) setError(err.message);
       else {
-        const rows = (data ?? []) as unknown as FlatRow[];
+        const rows = data ?? [];
         setFlats(
           rows.map((r) => ({
             id: r.flat_id,

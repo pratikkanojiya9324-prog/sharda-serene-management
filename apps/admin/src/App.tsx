@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
+import { ADMIN_SOCIETIES_SELECT } from '@society-gate/shared';
 import { supabase } from './lib/supabase';
 import Login from './pages/Login';
 import Flats from './pages/Flats';
@@ -37,7 +38,7 @@ export default function App() {
   const loadSocieties = useCallback(async (uid: string) => {
     const { data, error } = await supabase
       .from('memberships')
-      .select('society_id, societies(name)')
+      .select(ADMIN_SOCIETIES_SELECT)
       .eq('profile_id', uid)
       .eq('role', 'admin');
     const list = error

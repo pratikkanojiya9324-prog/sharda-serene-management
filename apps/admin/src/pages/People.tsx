@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { normalizePhone } from '@society-gate/shared';
+import {
+  ADMIN_FLAT_LINKS_SELECT,
+  ADMIN_FLATS_SELECT,
+  ADMIN_MEMBERS_SELECT,
+  normalizePhone,
+} from '@society-gate/shared';
 import type { AdminSociety } from '../App';
 import { supabase } from '../lib/supabase';
 
@@ -38,11 +43,11 @@ export default function People({ society }: { society: AdminSociety }) {
 
   const load = useCallback(async () => {
     const [f, m, fr, inv] = await Promise.all([
-      supabase.from('flats').select('id, number, towers!flats_tower_id_fkey(name)').eq('society_id', society.id),
-      supabase.from('memberships').select('id, profile_id, role, profiles(name, phone)').eq('society_id', society.id),
+      supabase.from('flats').select(ADMIN_FLATS_SELECT).eq('society_id', society.id),
+      supabase.from('memberships').select(ADMIN_MEMBERS_SELECT).eq('society_id', society.id),
       supabase
         .from('flat_residents')
-        .select('id, flat_id, profile_id, flats!inner(society_id)')
+        .select(ADMIN_FLAT_LINKS_SELECT)
         .eq('flats.society_id', society.id),
       supabase
         .from('invites')

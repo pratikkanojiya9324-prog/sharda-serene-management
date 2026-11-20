@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ADMIN_FLATS_SELECT, ADMIN_VISIT_LOG_SELECT } from '@society-gate/shared';
 import type { AdminSociety } from '../App';
 import { supabase } from '../lib/supabase';
 
@@ -30,7 +31,7 @@ export default function VisitorLog({ society }: { society: AdminSociety }) {
   useEffect(() => {
     supabase
       .from('flats')
-      .select('id, number, towers!flats_tower_id_fkey(name)')
+      .select(ADMIN_FLATS_SELECT)
       .eq('society_id', society.id)
       .then(({ data }) =>
         setFlats(
@@ -45,7 +46,7 @@ export default function VisitorLog({ society }: { society: AdminSociety }) {
     setError(null);
     let q = supabase
       .from('visits')
-      .select('id, created_at, name, purpose, status, manual_outcome, flat_id, photo_path')
+      .select(ADMIN_VISIT_LOG_SELECT)
       .eq('society_id', society.id)
       .order('created_at', { ascending: false })
       .limit(PAGE);

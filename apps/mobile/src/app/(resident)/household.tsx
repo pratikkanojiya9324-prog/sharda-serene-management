@@ -1,4 +1,5 @@
-import { normalizePhone } from '@society-gate/shared';
+import { HOUSEHOLD_MEMBERS_SELECT, normalizePhone } from '@society-gate/shared';
+import type { QueryData } from '@supabase/supabase-js';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
@@ -8,7 +9,10 @@ import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 
-type Member = { profile_id: string; profiles: { name: string; phone: string } | null };
+function householdMembers(flatId: string) {
+  return supabase.from('flat_residents').select(HOUSEHOLD_MEMBERS_SELECT).eq('flat_id', flatId).order('created_at');
+}
+type Member = QueryData<ReturnType<typeof householdMembers>>[number];
 
 export default function HouseholdScreen() {
   const { flat } = useResidentFlat();
@@ -22,13 +26,9 @@ export default function HouseholdScreen() {
 
   const load = useCallback(async () => {
     if (!flatId) return;
-    const { data, error: err } = await supabase
-      .from('flat_residents')
-      .select('profile_id, profiles(name, phone)')
-      .eq('flat_id', flatId)
-      .order('created_at');
+    const { data, error: err } = await householdMembers(flatId);
     if (err) setError(friendlyError(err.message));
-    else setMembers((data ?? []) as unknown as Member[]);
+    else setMembers(data ?? []);
   }, [flatId]);
 
   useFocusEffect(

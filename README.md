@@ -61,7 +61,7 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
    ```
    Scan the QR code with **Expo Go** on your phone. Push notifications need a real build with an EAS project (see "Building the Android app"); Expo Go is fine for everything else.
 
-**Test logins.** Local Supabase accepts fixed test phones with OTP `123456`: `919999999999` (the seeded admin) and `919888888888`. Invite the second one as a guard or resident from the admin site, then log in with it on the phone. No SMS is sent locally.
+**Test logins.** Local Supabase accepts fixed test phones with OTP `123456`: `919999999999` (the seeded admin), `919888888888` and `919777777777`. Invite the others as a guard or resident from the admin site, then log in with them on the phone. No SMS is sent locally. (`npm run smoke` invites `919888888888` as a guard and `919777777777` as a resident of the first flat if they are not invited yet.)
 
 ## Running tests
 
@@ -69,7 +69,10 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
 npm test --workspaces                       # shared, admin and mobile unit tests
 npx supabase test db                        # database tests (needs the local stack running)
 npx -y deno test supabase/functions/notify  # Edge Function tests (Deno is fetched on demand)
+npm run smoke                               # runs every app query that embeds related tables against the local stack
 ```
+
+`npm run smoke` signs in as the local admin, guard and resident test phones and runs the select strings from `packages/shared/src/selects.ts` (which both apps use). It catches errors the unit tests cannot, such as PostgREST `PGRST201` ("more than one relationship was found") when a new foreign key makes an embed ambiguous. Run it after `db reset` and after any schema change.
 
 ## Going live
 
