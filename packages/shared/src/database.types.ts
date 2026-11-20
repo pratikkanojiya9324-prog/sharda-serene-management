@@ -294,6 +294,12 @@ isOneToOne: false
       referencedRelation: "passes"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "visits_pass_same_society"
+      columns: ["pass_id","society_id"]
+isOneToOne: false
+      referencedRelation: "passes"
+      referencedColumns: ["id","society_id"]
+    },{
       foreignKeyName: "visits_responded_by_fkey"
       columns: ["responded_by"]
 isOneToOne: false
@@ -313,7 +319,10 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "claim_invites":
+            "can_view_profile":
+{ Args: { "p_profile": string }; Returns: boolean
+                           },
+"claim_invites":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
 "has_role":
@@ -327,9 +336,6 @@ isOneToOne: false
                            },
 "is_member":
 { Args: { "p_society": string }; Returns: boolean
-                           },
-"shares_society":
-{ Args: { "p_profile": string }; Returns: boolean
                            }
           }
           Enums: {

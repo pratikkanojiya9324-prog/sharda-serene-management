@@ -1,5 +1,5 @@
 begin;
-select plan(42);
+select plan(50);
 
 -- ---------------------------------------------------------------------------
 -- Seed (runs as postgres, bypasses RLS)
@@ -24,6 +24,7 @@ insert into auth.users (id, phone) values
   ('aaaaaaaa-0000-0000-0000-00000000a901', '910000000002'),
   ('aaaaaaaa-0000-0000-0000-00000000e101', '910000000003'),
   ('aaaaaaaa-0000-0000-0000-00000000e201', '910000000004'),
+  ('aaaaaaaa-0000-0000-0000-00000000e102', '910000000008'),
   ('bbbbbbbb-0000-0000-0000-00000000ad01', '910000000005'),
   ('bbbbbbbb-0000-0000-0000-00000000a901', '910000000006'),
   ('bbbbbbbb-0000-0000-0000-00000000e101', '910000000007'),
@@ -34,6 +35,7 @@ insert into profiles (id, name, phone) values
   ('aaaaaaaa-0000-0000-0000-00000000a901', 'Guard A',    '+910000000002'),
   ('aaaaaaaa-0000-0000-0000-00000000e101', 'Resident A1','+910000000003'),
   ('aaaaaaaa-0000-0000-0000-00000000e201', 'Resident A2','+910000000004'),
+  ('aaaaaaaa-0000-0000-0000-00000000e102', 'Resident A1b','+910000000008'),
   ('bbbbbbbb-0000-0000-0000-00000000ad01', 'Admin B',    '+910000000005'),
   ('bbbbbbbb-0000-0000-0000-00000000a901', 'Guard B',    '+910000000006'),
   ('bbbbbbbb-0000-0000-0000-00000000e101', 'Resident B1','+910000000007');
@@ -43,6 +45,7 @@ insert into memberships (profile_id, society_id, role) values
   ('aaaaaaaa-0000-0000-0000-00000000a901', 'aaaaaaaa-0000-0000-0000-000000000000', 'guard'),
   ('aaaaaaaa-0000-0000-0000-00000000e101', 'aaaaaaaa-0000-0000-0000-000000000000', 'resident'),
   ('aaaaaaaa-0000-0000-0000-00000000e201', 'aaaaaaaa-0000-0000-0000-000000000000', 'resident'),
+  ('aaaaaaaa-0000-0000-0000-00000000e102', 'aaaaaaaa-0000-0000-0000-000000000000', 'resident'),
   ('bbbbbbbb-0000-0000-0000-00000000ad01', 'bbbbbbbb-0000-0000-0000-000000000000', 'admin'),
   ('bbbbbbbb-0000-0000-0000-00000000a901', 'bbbbbbbb-0000-0000-0000-000000000000', 'guard'),
   ('bbbbbbbb-0000-0000-0000-00000000e101', 'bbbbbbbb-0000-0000-0000-000000000000', 'resident');
@@ -50,6 +53,7 @@ insert into memberships (profile_id, society_id, role) values
 insert into flat_residents (flat_id, profile_id) values
   ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e101'),
   ('aaaaaaaa-0000-0000-0000-0000000000f2', 'aaaaaaaa-0000-0000-0000-00000000e201'),
+  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e102'),
   ('bbbbbbbb-0000-0000-0000-0000000000f1', 'bbbbbbbb-0000-0000-0000-00000000e101');
 
 insert into visits (society_id, flat_id, name, purpose, created_by) values
@@ -57,9 +61,9 @@ insert into visits (society_id, flat_id, name, purpose, created_by) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f2', 'V A2', 'guest',    'aaaaaaaa-0000-0000-0000-00000000a901'),
   ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-0000000000f1', 'V B1', 'cab',      'bbbbbbbb-0000-0000-0000-00000000a901');
 
-insert into passes (society_id, flat_id, created_by, guest_name, code, valid_from, valid_to) values
-  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e101', 'G A1', '111111', now(), now() + interval '1 day'),
-  ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-0000000000f1', 'bbbbbbbb-0000-0000-0000-00000000e101', 'G B1', '222222', now(), now() + interval '1 day');
+insert into passes (id, society_id, flat_id, created_by, guest_name, code, valid_from, valid_to) values
+  ('aaaaaaaa-0000-0000-0000-0000000000c1', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e101', 'G A1', '111111', now(), now() + interval '1 day'),
+  ('bbbbbbbb-0000-0000-0000-0000000000c1', 'bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-0000000000f1', 'bbbbbbbb-0000-0000-0000-00000000e101', 'G B1', '222222', now(), now() + interval '1 day');
 
 insert into invites (society_id, phone, name, role, flat_id, created_by) values
   ('aaaaaaaa-0000-0000-0000-000000000000', '+919876543210', 'New Resident', 'resident', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000ad01'),
@@ -96,6 +100,12 @@ select throws_ok(
     values ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-0000000000b0', 'X1')$$,
   '23503', null, 'flat whose tower belongs to another society is rejected');
 
+select throws_ok(
+  $$insert into visits (society_id, flat_id, name, purpose, created_by, pass_id)
+    values ('bbbbbbbb-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-0000000000f1',
+            'X', 'guest', 'bbbbbbbb-0000-0000-0000-00000000a901', 'aaaaaaaa-0000-0000-0000-0000000000c1')$$,
+  '23503', null, 'visit linked to a pass of another society is rejected');
+
 -- ---------------------------------------------------------------------------
 -- Resident A1
 -- ---------------------------------------------------------------------------
@@ -112,8 +122,14 @@ select is((select count(*)::int from societies), 1, 'resident A1 sees only socie
 select is((select count(*)::int from flats), 2, 'resident A1 sees society A flats only');
 select is((select count(*)::int from memberships), 1, 'resident A1 sees only own membership');
 select is((select count(*)::int from invites), 0, 'resident A1 sees no invites');
-select is((select count(*)::int from flat_residents), 1, 'resident A1 sees only residents of own flat');
-select is((select count(*)::int from profiles), 4, 'resident A1 sees profiles of society A members only');
+select is((select count(*)::int from flat_residents), 2, 'resident A1 sees only residents of own flat');
+select is((select count(*)::int from profiles), 2, 'resident A1 sees only self and co-resident profiles');
+select is((select count(*)::int from profiles where id = 'aaaaaaaa-0000-0000-0000-00000000e201'), 0,
+  'resident A1 cannot see resident A2 (different flat)');
+select is((select count(*)::int from profiles where id = 'aaaaaaaa-0000-0000-0000-00000000e102'), 1,
+  'resident A1 can see co-resident of flat A1');
+select is((select count(*)::int from profiles where id in ('aaaaaaaa-0000-0000-0000-00000000ad01','aaaaaaaa-0000-0000-0000-00000000a901')), 0,
+  'resident A1 cannot see admin or guard profiles');
 select is((select count(*)::int from push_tokens), 1, 'resident A1 sees only own push token');
 
 select throws_ok(
@@ -155,7 +171,10 @@ select is((select count(*)::int from visits where society_id = 'aaaaaaaa-0000-00
 select is((select count(*)::int from visits where society_id = 'bbbbbbbb-0000-0000-0000-000000000000'), 0,
   'guard A sees 0 society B visits');
 select is((select count(*)::int from passes), 0, 'guard A selecting passes returns 0 rows');
-select is((select count(*)::int from flat_residents), 2, 'guard A sees society A flat residents only');
+select is((select count(*)::int from flat_residents), 3, 'guard A sees society A flat residents only');
+select is((select count(*)::int from profiles where id = 'aaaaaaaa-0000-0000-0000-00000000e101'), 1,
+  'guard A can see resident A1 profile');
+select is((select count(*)::int from profiles), 5, 'guard A sees society A member profiles only');
 select throws_ok(
   $$insert into visits (society_id, flat_id, name, purpose, created_by)
     values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1',
@@ -168,7 +187,7 @@ select throws_ok(
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000ad01","role":"authenticated"}', true);
 
 select is((select count(*)::int from passes), 1, 'admin A sees society A passes only');
-select is((select count(*)::int from memberships), 4, 'admin A sees society A memberships only');
+select is((select count(*)::int from memberships), 5, 'admin A sees society A memberships only');
 select is((select count(*)::int from invites), 1, 'admin A sees society A invites only');
 select lives_ok(
   $$insert into towers (society_id, name) values ('aaaaaaaa-0000-0000-0000-000000000000', 'TA2')$$,
@@ -176,9 +195,19 @@ select lives_ok(
 select throws_ok(
   $$insert into towers (society_id, name) values ('bbbbbbbb-0000-0000-0000-000000000000', 'TB2')$$,
   '42501', null, 'admin A cannot add a tower to society B');
+select lives_ok(
+  $$insert into invites (society_id, phone, name, role) values ('aaaaaaaa-0000-0000-0000-000000000000', '+910000007777', 'New Guard', 'guard')$$,
+  'admin A can invite into society A');
 select throws_ok(
   $$insert into invites (society_id, phone, name, role) values ('bbbbbbbb-0000-0000-0000-000000000000', '+910000008888', 'X', 'guard')$$,
   '42501', null, 'admin A cannot invite into society B');
+
+-- ---------------------------------------------------------------------------
+-- Guard B
+-- ---------------------------------------------------------------------------
+select set_config('request.jwt.claims', '{"sub":"bbbbbbbb-0000-0000-0000-00000000a901","role":"authenticated"}', true);
+select is((select count(*)::int from profiles where id = 'aaaaaaaa-0000-0000-0000-00000000e101'), 0,
+  'guard B cannot see resident A1 profile');
 
 -- ---------------------------------------------------------------------------
 -- Anonymous

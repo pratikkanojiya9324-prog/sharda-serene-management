@@ -5,6 +5,7 @@
 -- ---------------------------------------------------------------------------
 alter table towers add constraint towers_id_society_key unique (id, society_id);
 alter table flats  add constraint flats_id_society_key  unique (id, society_id);
+alter table passes add constraint passes_id_society_key unique (id, society_id);
 
 alter table flats
   add constraint flats_tower_same_society
@@ -15,6 +16,10 @@ alter table visits
 alter table passes
   add constraint passes_flat_same_society
   foreign key (flat_id, society_id) references flats (id, society_id) on delete cascade;
+-- visits.pass_id is nullable (MATCH SIMPLE); deleting a pass nulls only pass_id
+alter table visits
+  add constraint visits_pass_same_society
+  foreign key (pass_id, society_id) references passes (id, society_id) on delete set null (pass_id);
 -- invites.flat_id is nullable; MATCH SIMPLE skips the check when it is null
 alter table invites
   add constraint invites_flat_same_society
@@ -76,8 +81,9 @@ as $$
   );
 $$;
 
--- True when the caller and p_profile are members of at least one common society.
-create function public.shares_society(p_profile uuid)
+-- Profile visibility (phones are sensitive): admins/guards see members of their
+-- society; residents see only co-residents of a flat they still reside in.
+create function public.can_view_profile(p_profile uuid)
 returns boolean
 language sql stable security definer set search_path = ''
 as $$
@@ -85,7 +91,18 @@ as $$
     select 1
     from public.memberships mine
     join public.memberships theirs on theirs.society_id = mine.society_id
-    where mine.profile_id = auth.uid() and theirs.profile_id = p_profile
+    where mine.profile_id = auth.uid()
+      and mine.role in ('admin', 'guard')
+      and theirs.profile_id = p_profile
+  )
+  or exists (
+    select 1
+    from public.flat_residents me
+    join public.flat_residents other on other.flat_id = me.flat_id
+    join public.flats f on f.id = me.flat_id
+    join public.memberships m
+      on m.profile_id = me.profile_id and m.society_id = f.society_id and m.role = 'resident'
+    where me.profile_id = auth.uid() and other.profile_id = p_profile
   );
 $$;
 
@@ -150,7 +167,7 @@ revoke execute on function
   public.is_member(uuid),
   public.is_flat_resident(uuid),
   public.has_role_for_flat(uuid, public.member_role),
-  public.shares_society(uuid),
+  public.can_view_profile(uuid),
   public.claim_invites()
 from public, anon;
 
@@ -159,7 +176,7 @@ grant execute on function
   public.is_member(uuid),
   public.is_flat_resident(uuid),
   public.has_role_for_flat(uuid, public.member_role),
-  public.shares_society(uuid),
+  public.can_view_profile(uuid),
   public.claim_invites()
 to authenticated;
 
@@ -209,7 +226,7 @@ create policy flats_delete on flats for delete to authenticated
 -- profiles ------------------------------------------------------------------
 -- Rows are created by claim_invites. Users may change only their own name.
 create policy profiles_select on profiles for select to authenticated
-  using (id = (select auth.uid()) or public.shares_society(id));
+  using (id = (select auth.uid()) or public.can_view_profile(id));
 create policy profiles_update on profiles for update to authenticated
   using (id = (select auth.uid())) with check (id = (select auth.uid()));
 revoke insert, update, delete on profiles from authenticated, anon;
