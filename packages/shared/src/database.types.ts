@@ -23,7 +23,97 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "family_members": {
+            "bills": {
+                  Row: {
+                    "amount": number,"created_at": string,"due_date": string,"flat_id": string,"id": string,"paid_at": string | null,"payment_mode": Database["public"]['Enums']["payment_mode"] | null,"payment_reference": string | null,"period": string,"receipt_no": string | null,"society_id": string,"status": Database["public"]['Enums']["bill_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"created_at"?: string,"due_date": string,"flat_id": string,"id"?: string,"paid_at"?: string | null,"payment_mode"?: Database["public"]['Enums']["payment_mode"] | null,"payment_reference"?: string | null,"period": string,"receipt_no"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["bill_status"]
+                  }
+                  Update: {
+                    "amount"?: number,"created_at"?: string,"due_date"?: string,"flat_id"?: string,"id"?: string,"paid_at"?: string | null,"payment_mode"?: Database["public"]['Enums']["payment_mode"] | null,"payment_reference"?: string | null,"period"?: string,"receipt_no"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["bill_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bills_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "bills_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"complaint_comments": {
+                  Row: {
+                    "author_id": string | null,"author_name": string | null,"body": string,"complaint_id": string,"created_at": string,"id": string,"society_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string | null,"author_name"?: string | null,"body": string,"complaint_id": string,"created_at"?: string,"id"?: string,"society_id": string
+                  }
+                  Update: {
+                    "author_id"?: string | null,"author_name"?: string | null,"body"?: string,"complaint_id"?: string,"created_at"?: string,"id"?: string,"society_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "complaint_comments_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "complaint_comments_complaint_same_society"
+      columns: ["complaint_id","society_id"]
+isOneToOne: false
+      referencedRelation: "complaints"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "complaint_comments_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"complaints": {
+                  Row: {
+                    "category": Database["public"]['Enums']["complaint_category"],"created_at": string,"created_by": string | null,"created_by_name": string | null,"description": string,"flat_id": string,"id": string,"photo_path": string | null,"society_id": string,"status": Database["public"]['Enums']["complaint_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category": Database["public"]['Enums']["complaint_category"],"created_at"?: string,"created_by"?: string | null,"created_by_name"?: string | null,"description": string,"flat_id": string,"id"?: string,"photo_path"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["complaint_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "category"?: Database["public"]['Enums']["complaint_category"],"created_at"?: string,"created_by"?: string | null,"created_by_name"?: string | null,"description"?: string,"flat_id"?: string,"id"?: string,"photo_path"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["complaint_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "complaints_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "complaints_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "complaints_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"family_members": {
                   Row: {
                     "created_at": string,"flat_id": string,"id": string,"name": string,"phone": string | null,"relation": string | null,"society_id": string
                   }
@@ -177,6 +267,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"notices": {
+                  Row: {
+                    "attachment_kind": string | null,"attachment_path": string | null,"body": string,"created_at": string,"created_by": string | null,"id": string,"pinned": boolean,"society_id": string,"title": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attachment_kind"?: string | null,"attachment_path"?: string | null,"body": string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"pinned"?: boolean,"society_id": string,"title": string
+                  }
+                  Update: {
+                    "attachment_kind"?: string | null,"attachment_path"?: string | null,"body"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"pinned"?: boolean,"society_id"?: string,"title"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notices_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "notices_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"passes": {
                   Row: {
                     "code": string,"created_at": string,"created_by": string,"created_by_name": string | null,"flat_id": string,"guest_name": string,"id": string,"revoked_at": string | null,"society_id": string,"valid_from": string,"valid_to": string
@@ -249,16 +365,36 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"societies": {
+                },"receipt_counters": {
                   Row: {
-                    "address": string | null,"created_at": string,"id": string,"name": string
+                    "last": number,"month": string,"society_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "address"?: string | null,"created_at"?: string,"id"?: string,"name": string
+                    "last"?: number,"month": string,"society_id": string
                   }
                   Update: {
-                    "address"?: string | null,"created_at"?: string,"id"?: string,"name"?: string
+                    "last"?: number,"month"?: string,"society_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "receipt_counters_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"societies": {
+                  Row: {
+                    "address": string | null,"created_at": string,"id": string,"name": string,"short_code": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "address"?: string | null,"created_at"?: string,"id"?: string,"name": string,"short_code"?: string
+                  }
+                  Update: {
+                    "address"?: string | null,"created_at"?: string,"id"?: string,"name"?: string,"short_code"?: string
                   }
                   Relationships: [
                     
@@ -345,7 +481,23 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "add_household_member":
+            "add_complaint_comment":
+{ Args: { "p_actor_name"?: string,"p_body": string,"p_complaint_id": string }; Returns: {
+              "author_id": string | null,
+"author_name": string | null,
+"body": string,
+"complaint_id": string,
+"created_at": string,
+"id": string,
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "complaint_comments"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"add_household_member":
 { Args: { "p_flat_id": string,"p_name": string,"p_phone": string }; Returns: {
               "claimed_at": string | null,
 "created_at": string,
@@ -363,6 +515,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"admin_society":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "can_view_profile":
 { Args: { "p_profile": string }; Returns: boolean
                            },
@@ -372,6 +527,44 @@ isOneToOne: false
 "clean_actor_name":
 { Args: { "p_name": string }; Returns: string
                            },
+"create_complaint":
+{ Args: { "p_actor_name"?: string,"p_category": Database["public"]['Enums']["complaint_category"],"p_description": string,"p_flat_id": string,"p_photo_path"?: string }; Returns: {
+              "category": Database["public"]['Enums']["complaint_category"],
+"created_at": string,
+"created_by": string | null,
+"created_by_name": string | null,
+"description": string,
+"flat_id": string,
+"id": string,
+"photo_path": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["complaint_status"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "complaints"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"create_notice":
+{ Args: { "p_attachment_kind"?: string,"p_attachment_path"?: string,"p_body": string,"p_pinned"?: boolean,"p_title": string }; Returns: {
+              "attachment_kind": string | null,
+"attachment_path": string | null,
+"body": string,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"pinned": boolean,
+"society_id": string,
+"title": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "notices"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "create_pass":
 { Args: { "p_actor_name"?: string,"p_flat_id": string,"p_guest_name": string,"p_valid_from": string,"p_valid_to": string }; Returns: {
               "code": string,
@@ -418,6 +611,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"delete_notice":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "expire_stale_visits":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
@@ -425,6 +621,12 @@ isOneToOne: false
 { Args: { "p_flat_id": string }; Returns: {
               "name": string,"phone": string,"relation": string
             }[]
+                           },
+"generate_bills":
+{ Args: { "p_amount": number,"p_due_date": string,"p_period": string }; Returns: number
+                           },
+"generate_bills_custom":
+{ Args: { "p_due_date": string,"p_period": string,"p_rows": Json }; Returns: number
                            },
 "has_role":
 { Args: { "p_role": Database["public"]['Enums']["member_role"],"p_society": string }; Returns: boolean
@@ -443,6 +645,27 @@ isOneToOne: false
               "building": string,"flat_id": string,"flat_number": string,"society_name": string,"wing": string
             }[]
                            },
+"mark_bill_paid":
+{ Args: { "p_bill_id": string,"p_mode": Database["public"]['Enums']["payment_mode"],"p_reference"?: string }; Returns: {
+              "amount": number,
+"created_at": string,
+"due_date": string,
+"flat_id": string,
+"id": string,
+"paid_at": string | null,
+"payment_mode": Database["public"]['Enums']["payment_mode"] | null,
+"payment_reference": string | null,
+"period": string,
+"receipt_no": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["bill_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "bills"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "mark_entry":
 { Args: { "p_visit_id": string }; Returns: {
               "created_at": string,
@@ -570,6 +793,44 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"set_complaint_status":
+{ Args: { "p_complaint_id": string,"p_status": Database["public"]['Enums']["complaint_status"] }; Returns: {
+              "category": Database["public"]['Enums']["complaint_category"],
+"created_at": string,
+"created_by": string | null,
+"created_by_name": string | null,
+"description": string,
+"flat_id": string,
+"id": string,
+"photo_path": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["complaint_status"],
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "complaints"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"set_notice_pinned":
+{ Args: { "p_id": string,"p_pinned": boolean }; Returns: {
+              "attachment_kind": string | null,
+"attachment_path": string | null,
+"body": string,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"pinned": boolean,
+"society_id": string,
+"title": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "notices"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "set_visit_photo":
 { Args: { "p_photo_path": string,"p_visit_id": string }; Returns: {
               "created_at": string,
@@ -627,7 +888,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
+            "bill_status": "unpaid"|"paid","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","payment_mode": "cash"|"cheque"|"upi"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -747,7 +1008,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
+            "bill_status": ["unpaid", "paid"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"payment_mode": ["cash", "cheque", "upi", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
           }
         }
 } as const
