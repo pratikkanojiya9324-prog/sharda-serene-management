@@ -9,7 +9,9 @@
     "test": "npm test --workspaces --if-present",
     "dev:secrets": "bash scripts/dev-secrets.sh",
     "gen:types": "supabase gen types typescript --local > packages/shared/src/database.types.ts",
-    "smoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/smoke-queries.mjs"
+    "smoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/smoke-queries.mjs",
+    "seed:demo": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed-demo.mjs",
+    "staff:create": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/create-staff.mjs"
   },
   "devDependencies": {
     "supabase": "^3.2.0"

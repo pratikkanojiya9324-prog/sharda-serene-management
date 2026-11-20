@@ -2,15 +2,19 @@
 
 Visitor management for housing societies. A guard logs a visitor at the gate, the flat's residents get a push notification and approve or deny, and the guard sees the answer. Residents can also create pass codes for expected guests. One backend can serve many societies.
 
+**Login model.** There is no OTP and no SMS. Each **flat** is one account (Building, Wing, Flat, then a shared family password) and each **guard/admin** is a staff account (username + password). Under the hood these are Supabase Auth email/password users with synthetic emails (`flat-<flat_id>@login.societygate.app`, `<username>@staff.<society_id>.societygate.app`) that nobody ever sees. Accounts are created only by an admin (the `accounts` Edge Function, the admin website) or by the scripts below; self-signup is disabled.
+
 ## What's in the repo
 
 | Path | What it is |
 | --- | --- |
-| `supabase/` | The backend: database migrations (`migrations/`), database tests (`tests/`), the `notify` Edge Function (`functions/notify`), a dev seed (`seed.sql`) and the production first-society script (`setup-society.sql`). |
+| `supabase/` | The backend: database migrations (`migrations/`), database tests (`tests/`), the `notify` and `accounts` Edge Functions (`functions/`), an empty `seed.sql` (demo data comes from `npm run seed:demo`) and the legacy first-society script (`setup-society.sql`, invite based, not used by the flat-login model). |
 | `apps/mobile` | The Expo / React Native app (guards and residents). Routes live in `apps/mobile/src/app`. |
 | `apps/admin` | The Vite web admin panel (society admins manage flats, guards and residents). |
 | `packages/shared` | TypeScript code shared by both apps (types, helpers). |
 | `scripts/dev-secrets.sh` | Local helper that sets the Vault secrets the push-notification trigger needs. |
+| `scripts/seed-demo.mjs` | `npm run seed:demo`: idempotent demo society "Sharda Serene" (service role). |
+| `scripts/create-staff.mjs` | `npm run staff:create`: creates a guard/admin account (service role), e.g. the first admin. |
 
 Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` once at the root.
 
@@ -22,6 +26,7 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
 - **Expo account** (free) at expo.dev, for building the Android app.
 - **An Android phone** to test with.
 - Bash (Git Bash on Windows) for `scripts/dev-secrets.sh`.
+- Node 22.6 or newer for the `scripts/*.mjs` helpers (they import the shared `.ts` helpers directly; developed on Node 24).
 
 ## Local development
 
@@ -34,7 +39,7 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
    npx supabase start
    ```
    It prints the API URL (`http://127.0.0.1:54321`) and the anon key. `npx supabase status` shows them again.
-3. Load the schema and the dev seed (a "Demo Society" with tower A, flats A-101 and A-102, and an admin invite for `+919999999999`):
+3. Load the schema (`seed.sql` is intentionally empty):
    ```
    npx supabase db reset
    ```
@@ -43,10 +48,17 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
    npm run dev:secrets
    ```
    This stores `notify_url` and a fresh random `notify_secret` in Vault and writes the same secret to `supabase/functions/.env` as `NOTIFY_SECRET` (gitignored), which the function checks. **Run this after every `db reset`**, because a reset wipes Vault, and restart `functions serve` afterwards.
-5. Serve the `notify` Edge Function (leave it running in its own terminal):
+5. Serve the Edge Functions (leave it running in its own terminal):
    ```
-   npx supabase functions serve notify
+   npx supabase functions serve
    ```
+   This serves both `notify` and `accounts`. If you ever change `supabase/config.toml`, run `npx supabase stop && npx supabase start` so the auth settings apply.
+   Then create the demo data (Sharda Serene: 2 buildings x wings A/B x 42 flats, a flat account per flat, demo family members, 3 notices, 4 complaints, this month's bills, plus staff accounts). It is idempotent: run it again any time and nothing is duplicated (existing passwords are not reset). From Git Bash:
+   ```
+   eval "$(npx supabase status -o env)"
+   SUPABASE_URL=$API_URL SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY npm run seed:demo
+   ```
+   It prints the society id (needed for `EXPO_PUBLIC_SOCIETY_ID`) and the demo logins. Run it again after every `db reset`.
 6. Create the env files. Copy `apps/admin/.env.example` to `apps/admin/.env` and `apps/mobile/.env.example` to `apps/mobile/.env`, then fill in the anon key from `npx supabase status`.
    - Admin: `VITE_SUPABASE_URL=http://127.0.0.1:54321`.
    - Mobile: a physical phone cannot reach `localhost` on your PC. Use your PC's LAN IP, for example `EXPO_PUBLIC_SUPABASE_URL=http://192.168.1.20:54321` (find it with `ipconfig`). Phone and PC must be on the same Wi-Fi.
@@ -61,18 +73,26 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
    ```
    Scan the QR code with **Expo Go** on your phone. Push notifications need a real build with an EAS project (see "Building the Android app"); Expo Go is fine for everything else.
 
-**Test logins.** Local Supabase accepts fixed test phones with OTP `123456`: `919999999999` (the seeded admin), `919888888888` and `919777777777`. Invite the others as a guard or resident from the admin site, then log in with them on the phone. No SMS is sent locally. (`npm run smoke` invites `919888888888` as a guard and `919777777777` as a resident of the first flat if they are not invited yet.)
+**Demo logins** (created by `npm run seed:demo`):
+
+| Who | Login | Password |
+| --- | --- | --- |
+| Flat (any) | pick Building, Wing, Flat | `Sharda@<building><wing><flat>`, e.g. Building 1 / A / 101 is `Sharda@1A101`, Building 2 / B / 704 is `Sharda@2B704` |
+| Admin | "Guard / Admin login", username `admin` | `Admin@123` |
+| Guard | "Guard / Admin login", username `guard1` | `Guard@123` |
+
+Create more staff accounts with `npm run staff:create -- --society <society-id> --username <u> --name "<Name>" --role guard|admin --password <pw>` (needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the environment), or from the admin website once logged in as an admin. Usernames are lowercase `[a-z0-9_.-]{3,30}`, passwords at least 6 characters.
 
 ## Running tests
 
 ```
 npm test --workspaces                       # shared, admin and mobile unit tests
 npx supabase test db                        # database tests (needs the local stack running)
-npx -y deno test supabase/functions/notify  # Edge Function tests (Deno is fetched on demand)
-npm run smoke                               # runs every app query that embeds related tables against the local stack
+npx -y deno test supabase/functions         # Edge Function tests (Deno is fetched on demand)
+npm run smoke                               # runs every app query that embeds related tables against the local stack (still phone based; being rewritten for flat login)
 ```
 
-`npm run smoke` signs in as the local admin, guard and resident test phones and runs the select strings from `packages/shared/src/selects.ts` (which both apps use). It catches errors the unit tests cannot, such as PostgREST `PGRST201` ("more than one relationship was found") when a new foreign key makes an embed ambiguous. Run it after `db reset` and after any schema change.
+`npm run smoke` (currently written for the old phone login and will not work until it is rewritten) signs in as local users and runs the select strings from `packages/shared/src/selects.ts` (which both apps use). It catches errors the unit tests cannot, such as PostgREST `PGRST201` ("more than one relationship was found") when a new foreign key makes an embed ambiguous. Run it after `db reset` and after any schema change.
 
 ## Going live
 
@@ -84,10 +104,12 @@ npm run smoke                               # runs every app query that embeds r
    npx supabase db push
    ```
    Do not run `seed.sql` in production; it is dev data only.
-3. **Deploy the Edge Function:**
+3. **Deploy the Edge Functions:**
    ```
    npx supabase functions deploy notify
+   npx supabase functions deploy accounts
    ```
+   `accounts` keeps the gateway JWT check on (`verify_jwt = true`); it also re-checks inside that the caller is an admin of the target society.
    `supabase/config.toml` turns the gateway JWT check off for `notify` (`[functions.notify] verify_jwt = false`) because the database calls it with a shared secret instead. If you deploy some other way, pass `--no-verify-jwt`.
 4. **Create the notify shared secret** so the database can call the function. Generate one long random value (for example `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) and store the **same value** in two places:
    - as the function's secret:
@@ -100,24 +122,13 @@ npm run smoke                               # runs every app query that embeds r
      select vault.create_secret('<the-random-value>', 'notify_secret');
      ```
    To rotate it later, set the new value in both places (`select vault.update_secret((select id from vault.secrets where name = 'notify_secret'), '<new-value>');`). The function reads the database with the auto-provided `SUPABASE_SERVICE_ROLE_KEY`; you do not store that key anywhere.
-5. **Set up real SMS for phone login** (Authentication, Providers, Phone). Supabase supports Twilio, MessageBird, Textlocal and Vonage. SMS is billed per message by that provider, so budget for it. Keep **Confirm phone** turned ON: the app relies on a verified phone to claim invites. **For Indian numbers read "SMS login in India" below first: it takes days to weeks.**
-6. **Point the apps at production:** set `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile) and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (admin) to `https://<project-ref>.supabase.co` and the production anon key, and set `EXPO_PUBLIC_ADMIN_URL` (mobile, optional) to the admin site's address so admin-only users see it in the app. Never put the service role key in either app.
+5. **Auth settings** (Authentication in the dashboard): turn the **Phone** provider off, keep **Email** on, turn **Allow new users to sign up** off and **Confirm email** off (accounts are created only through the `accounts` function and the scripts, with confirmed synthetic emails). Locally this is already set in `supabase/config.toml`. Supabase's default auth rate limits are accepted for now.
+6. **Point the apps at production:** set `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile) and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (admin) to `https://<project-ref>.supabase.co` and the production anon key, and set `EXPO_PUBLIC_ADMIN_URL` (mobile, optional) to the admin site's address so admin-only users see it in the app. Also set `EXPO_PUBLIC_SOCIETY_ID` (mobile) to the society's id. Never put the service role key in either app.
 7. **Deploy the admin site:**
    ```
    npm run build -w apps/admin
    ```
    Upload `apps/admin/dist` to any static host (Vercel, Netlify, Cloudflare Pages...). Set the two `VITE_` variables in the host before building there.
-
-## SMS login in India (start early)
-
-Indian carriers drop SMS that are not registered on TRAI's DLT (Distributed Ledger Technology) platform. Without it, residents never get their OTP and cannot log in.
-
-1. **Register as an entity (Principal Entity)** on a DLT portal (Jio, Airtel, Vodafone Idea, BSNL...). You need the society's or your business's PAN/GST or registration documents. Approval takes from a few days to a few weeks.
-2. **Register a sender ID (header)**, e.g. `SOCGTE` (6 letters), for transactional/service messages.
-3. **Register the exact OTP template** as a content template of type service/transactional (OTP). The DLT template text must match, character for character, the SMS template set in Supabase (Authentication → Providers → Phone → SMS message; locally `template` under `[auth.sms]` in `supabase/config.toml`). The variable part is `{{ .Code }}` in Supabase and `{#var#}` in DLT. Example: Supabase `Your Society Gate login code is {{ .Code }}` ↔ DLT `Your Society Gate login code is {#var#}`. If they differ by a single character, carriers silently drop the SMS.
-4. **Give your SMS provider** the DLT entity ID, sender ID and template ID (Twilio, Vonage, MessageBird and Textlocal each have a DLT section). Send yourself a test OTP before onboarding anyone.
-5. **Raise the Auth SMS rate limit before onboarding day.** Supabase limits how many SMS the project sends per hour (Authentication → Rate Limits, "SMS sent"; locally `sms_sent` under `[auth.rate_limit]`). When a whole society installs the app on the same evening, the default limit is hit quickly and logins fail. Raise it for the day, then lower it again.
-6. **SMS pumping risk.** Attackers can request OTPs to premium or random numbers so that you pay for the SMS. Keep the rate limit only as high as you need, watch your provider's spend dashboard, set a spend alert or cap there, and turn off destinations you do not need (allow only India, +91, if your provider supports geo permissions). Only invited phones can finish logging in, but sending the OTP still costs money.
 
 ## Check notifications are working
 
@@ -180,21 +191,38 @@ The `development` profile builds a dev client; it also needs `npx expo install e
 
 ## Setting up your society
 
-1. Create the society and its first admin invite, using the production database URL (Project Settings, Database, connection string):
+1. **Wipe the test project (test environment only).** The test project still holds the old phone-OTP users, invites, visits and passes. Reset it before loading the new model: `npx supabase db reset --linked` destroys ALL data in the linked project and re-applies every migration, so only ever run it against the test project. (Old auth users are not removed by a database reset; delete them in the dashboard under Authentication, Users.)
+2. **Load demo data** against the project, with the service role key from Project Settings, API (never commit it):
    ```
-   psql "$DB_URL" -v society_name='Green Park Society' -v admin_phone='+919812345678' -v admin_name='Your Name' -f supabase/setup-society.sql
+   SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role-key> npm run seed:demo
    ```
-   `admin_phone` must be an Indian mobile number in the form `+91XXXXXXXXXX`; `admin_name` is optional.
-2. The admin opens the admin site and logs in with that phone (SMS OTP). The invite is claimed automatically.
-3. In the admin site, add towers and flats.
-4. Invite guards (by phone) and residents (by phone and flat). There is no self-signup: a person can only log in if an invite exists for their phone.
-5. Residents and guards install the APK (or Play Store app) and log in with the same phone number and OTP.
-6. **Battery settings, so alerts arrive.** Many Android phones kill background apps. On each resident's and guard's phone: allow notifications for Society Gate, set battery usage for the app to "Unrestricted" (Settings, Apps, Society Gate, Battery), and turn off any "auto-start / app sleeping" restriction (Xiaomi, Oppo, Vivo, Samsung "sleeping apps").
+   For a real society instead, create the society row (Table editor or SQL), then its first admin:
+   ```
+   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run staff:create -- --society <society-id> --username admin --name "Your Name" --role admin --password <strong-password>
+   ```
+3. The admin logs in on the admin site with that username and password. Flats, family members, passwords and staff are then managed there (bulk CSV import, set/reset passwords, staff accounts), all through the `accounts` function.
+4. Residents install the APK and log in with Building, Wing, Flat and the flat's password; guards and admins use "Guard / Admin login".
+5. **Battery settings, so alerts arrive.** Many Android phones kill background apps. On each resident's and guard's phone: allow notifications for Society Gate, set battery usage for the app to "Unrestricted" (Settings, Apps, Society Gate, Battery), and turn off any "auto-start / app sleeping" restriction (Xiaomi, Oppo, Vivo, Samsung "sleeping apps").
+
+### The accounts function
+
+`POST /functions/v1/accounts` with the admin's session token (`Authorization: Bearer <access token>`) and a JSON body `{ "action": ..., ... }`:
+
+| action | fields | notes |
+| --- | --- | --- |
+| `create_flat_account` | `flat_id`, `password` | 409 `account_exists` if the flat already has one |
+| `set_password` | `flat_id` or `user_id`, `password` | admin resets any flat or staff password |
+| `create_staff` | `society_id`, `username`, `name`, `role` (guard/admin), `password` | 409 `username_taken` |
+| `disable_staff` | `user_id` | removes the staff memberships and bans the login; not yourself |
+| `bulk_import` | `society_id`, `rows`: `[{building, wing, flat, password?, member_name?, member_phone?, relation?}]` | upsert by building/wing/flat (missing building, wing or flat is created); blank password keeps the current one, and a new account without one gets a random 8-character password returned as `generated_password`; a flat whose rows name members has its family replaced wholesale; one result per row; a flat with any invalid row is skipped entirely |
+
+Anyone who is not an admin of the target society gets 403 `{"error":"not_authorized"}`.
 
 ## Known limitations of v1
 
 - Online only: no offline mode; the guard phone needs internet.
 - One gate per society.
 - A guard belongs to one society.
+- One shared password per flat: everyone in the family can act as the flat (the app asks "who is using this phone?" only to label actions).
 - English only.
 - Android is the supported platform; iOS builds from the same code but is not published in v1.
