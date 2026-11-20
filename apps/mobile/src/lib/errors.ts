@@ -1,5 +1,5 @@
 const ERROR_TEXT: Record<string, string> = {
-  already_responded: 'Already answered by another family member',
+  already_responded: 'This request was already answered',
   visit_expired: 'This request expired — the guard will call you',
   not_authorized: "You don't have access to this",
   invalid_phone: 'Enter a valid 10-digit mobile number',

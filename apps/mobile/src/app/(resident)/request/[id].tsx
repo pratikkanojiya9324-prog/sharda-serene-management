@@ -1,20 +1,15 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { friendlyError } from '@/lib/errors';
+import { requestResultText } from '@/lib/requestResult';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 import { useLiveVisit } from '@/lib/useLiveVisit';
 import { useVisitPhoto } from '@/lib/useVisitPhoto';
-type Response = 'approved' | 'denied' | 'leave_at_gate';
 
-const RESULT: Record<string, string> = {
-  approved: 'You approved this visitor',
-  denied: 'You denied this visitor',
-  leave_at_gate: 'Visitor asked to leave it at the gate',
-  expired: 'This request expired — the guard will call you',
-};
+type Response = 'approved' | 'denied' | 'leave_at_gate';
 
 export default function RequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,20 +18,33 @@ export default function RequestScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const photoUrl = useVisitPhoto(visit?.photo_path);
+  const [myId, setMyId] = useState<string | null>(null);
+  // Synchronous guard: a fast double tap fires twice before `busy` re-renders.
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setMyId(data.session?.user.id ?? null));
+  }, []);
 
   async function respond(response: Response) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setBusy(true);
-    const { data, error: err } = await supabase.rpc('respond_to_visit', {
-      p_visit_id: id,
-      p_response: response,
-    });
-    setBusy(false);
-    if (err) {
-      setError(friendlyError(err.message));
-      // Refresh so the screen shows the answer that won.
-      await refetch();
-    } else if (data) applyVisit(data);
+    try {
+      const { data, error: err } = await supabase.rpc('respond_to_visit', {
+        p_visit_id: id,
+        p_response: response,
+      });
+      if (err) {
+        setError(friendlyError(err.message));
+        // Refresh so the screen shows the answer that won.
+        await refetch();
+      } else if (data) applyVisit(data);
+    } finally {
+      setBusy(false);
+      inFlight.current = false;
+    }
   }
 
   if (!visit) {
@@ -44,7 +52,8 @@ export default function RequestScreen() {
     return <View style={ui.screen}>{text ? <Text style={ui.error}>{text}</Text> : <ActivityIndicator />}</View>;
   }
 
-  const open = visit.status === 'pending';
+  const result = requestResultText(visit, myId);
+  const open = result === null;
   return (
     <ScrollView contentContainerStyle={[ui.screen, { justifyContent: 'flex-start' }]}>
       {photoUrl ? (
@@ -62,7 +71,7 @@ export default function RequestScreen() {
           <BigButton label="Leave at gate" color="#1d4ed8" disabled={busy} onPress={() => respond('leave_at_gate')} />
         </>
       ) : (
-        <Text style={[ui.title, { fontSize: 20 }]}>{RESULT[visit.status] ?? visit.status}</Text>
+        <Text style={[ui.title, { fontSize: 20 }]}>{result}</Text>
       )}
       {error ? <Text style={ui.error}>{error}</Text> : null}
     </ScrollView>

@@ -19,6 +19,8 @@ export default function App() {
   const [societies, setSocieties] = useState<AdminSociety[] | null>(null);
   const [societyId, setSocietyId] = useState<string | null>(null);
   const [notAdmin, setNotAdmin] = useState(false);
+  // A failed load (network, server) is not "not an admin": show it with a retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // true while Login verifies the OTP and claims invites, so memberships are read only afterwards
   const [claiming, setClaiming] = useState(false);
 
@@ -41,9 +43,12 @@ export default function App() {
       .select(ADMIN_SOCIETIES_SELECT)
       .eq('profile_id', uid)
       .eq('role', 'admin');
-    const list = error
-      ? []
-      : (data ?? []).map((m) => ({ id: m.society_id, name: m.societies?.name ?? 'Society' }));
+    if (error) {
+      setLoadError(error.message);
+      return;
+    }
+    setLoadError(null);
+    const list = (data ?? []).map((m) => ({ id: m.society_id, name: m.societies?.name ?? 'Society' }));
     if (list.length === 0) {
       setNotAdmin(true);
       await supabase.auth.signOut();
@@ -57,6 +62,7 @@ export default function App() {
   useEffect(() => {
     if (!userId) {
       setSocieties(null);
+      setLoadError(null);
       return;
     }
     if (claiming) return;
@@ -65,6 +71,17 @@ export default function App() {
 
   if (!ready) return <p>Loading…</p>;
   if (!session) return <Login notAdmin={notAdmin} setClaiming={setClaiming} />;
+  if (loadError && userId) {
+    return (
+      <main>
+        <p className="error">Could not load your societies: {loadError}</p>
+        <div className="row">
+          <button onClick={() => void loadSocieties(userId)}>Try again</button>
+          <button onClick={() => supabase.auth.signOut()}>Sign out</button>
+        </div>
+      </main>
+    );
+  }
   if (!societies) return <p>Loading…</p>;
 
   const society = societies.find((s) => s.id === societyId) ?? societies[0];
@@ -94,7 +111,7 @@ export default function App() {
         {/* key remounts pages when the admin switches society */}
         <Routes key={society.id}>
           <Route path="/flats" element={<Flats society={society} />} />
-          <Route path="/people" element={<People society={society} />} />
+          <Route path="/people" element={<People society={society} userId={session.user.id} />} />
           <Route path="/visits" element={<VisitorLog society={society} />} />
           <Route path="*" element={<Navigate to="/flats" replace />} />
         </Routes>

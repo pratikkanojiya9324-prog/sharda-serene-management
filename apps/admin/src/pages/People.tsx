@@ -28,7 +28,7 @@ interface PendingInvite {
   flatLabel: string;
 }
 
-export default function People({ society }: { society: AdminSociety }) {
+export default function People({ society, userId }: { society: AdminSociety; userId: string }) {
   const [flats, setFlats] = useState<FlatOption[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [pending, setPending] = useState<PendingInvite[]>([]);
@@ -148,6 +148,10 @@ export default function People({ society }: { society: AdminSociety }) {
     await load();
   }
 
+  // Never offer to remove yourself, or the society's last admin (nobody could manage it).
+  const adminCount = members.filter((m) => m.role === 'admin').length;
+  const canRemove = (m: Member) => m.profileId !== userId && !(m.role === 'admin' && adminCount <= 1);
+
   return (
     <>
       <h2>People</h2>
@@ -209,9 +213,7 @@ export default function People({ society }: { society: AdminSociety }) {
                   ))}
                 </td>
                 <td>Claimed</td>
-                <td>
-                  <button onClick={() => removeMember(m)}>Remove</button>
-                </td>
+                <td>{canRemove(m) && <button onClick={() => removeMember(m)}>Remove</button>}</td>
               </tr>
             ))}
             {pending.map((i) => (

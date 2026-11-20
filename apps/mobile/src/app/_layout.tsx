@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, Text, View } from 'react-native';
 
 import { notificationTarget } from '@/lib/notificationRoute';
 import { bootstrapSignedInUser } from '@/lib/postLogin';
@@ -33,6 +33,8 @@ export default function RootLayout() {
   const [bootError, setBootError] = useState<string | null>(null);
   const [roles, setRoles] = useState<Role[] | null>(null);
   const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
+  // Bumped by "Try again" to re-run the bootstrap after an error.
+  const [bootAttempt, setBootAttempt] = useState(0);
   const bootstrappedFor = useRef<string | null>(null);
   // Covers both a tap while running and a cold start from a notification.
   const response = Notifications.useLastNotificationResponse();
@@ -70,7 +72,13 @@ export default function RootLayout() {
         bootstrappedFor.current = null;
         setBootError(e instanceof Error ? e.message : 'Something went wrong');
       });
-  }, [ready, userId, router]);
+  }, [ready, userId, router, bootAttempt]);
+
+  const retryBootstrap = () => {
+    bootstrappedFor.current = null;
+    setBootError(null);
+    setBootAttempt((n) => n + 1);
+  };
 
   // Back from the phone's settings (the "Fix" button): try push registration again.
   const recheckPush = useCallback(async () => setPushStatus(await registerPushToken()), []);
@@ -117,11 +125,14 @@ export default function RootLayout() {
         </Stack.Protected>
       </Stack>
       {bootError && session ? (
-        <View style={{ position: 'absolute', bottom: 24, left: 24, right: 24 }}>
-          <Text style={ui.error}>{bootError}</Text>
-          <Text style={ui.secondaryText} onPress={() => signOut()}>
-            Sign out
-          </Text>
+        <View style={{ position: 'absolute', bottom: 24, left: 24, right: 24, gap: 8, backgroundColor: '#fff' }}>
+          <Text style={ui.error}>Could not load your account: {bootError}</Text>
+          <Pressable style={ui.button} onPress={retryBootstrap}>
+            <Text style={ui.buttonText}>Try again</Text>
+          </Pressable>
+          <Pressable style={ui.secondary} onPress={() => signOut()}>
+            <Text style={ui.secondaryText}>Sign out</Text>
+          </Pressable>
         </View>
       ) : null}
     </PushStatusContext.Provider>

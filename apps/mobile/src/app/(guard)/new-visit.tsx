@@ -1,7 +1,7 @@
 import { normalizePhone } from '@society-gate/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { filterFlats } from '@/lib/flatPicker';
@@ -54,6 +54,9 @@ export default function NewVisit() {
   const [purpose, setPurpose] = useState<Purpose>('guest');
   const [photo, setPhoto] = useState<{ uri: string; width: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Synchronous guard: a fast double tap fires twice before `busy` re-renders,
+  // which would create two visits and two pushes.
+  const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,6 +100,7 @@ export default function NewVisit() {
   }
 
   async function submit() {
+    if (inFlight.current) return;
     setError(null);
     if (!societyId || !flatId) return setError('Pick a tower and flat.');
     if (!name.trim()) return setError('Enter the visitor name.');
@@ -108,6 +112,7 @@ export default function NewVisit() {
         return setError('Enter a valid 10-digit mobile number, or leave it blank.');
       }
     }
+    inFlight.current = true;
     setBusy(true);
     try {
       // Create the visit first so the residents' push goes out at once; the photo follows.
@@ -137,6 +142,7 @@ export default function NewVisit() {
       setError(e instanceof Error ? e.message : 'Could not create the visit');
     } finally {
       setBusy(false);
+      inFlight.current = false;
     }
   }
 
