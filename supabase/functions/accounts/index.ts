@@ -11,6 +11,7 @@ import {
   isValidPassword,
   isValidUsername,
   staffEmail,
+  usernameFromEmail,
 } from "./logic.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -101,9 +102,16 @@ async function createAccount(
     societyId: string;
     role: "resident" | "guard" | "admin";
     flatId?: string;
+    /** Staff only: kept in user_metadata so admins can see it (the email is synthetic). */
+    username?: string;
   },
 ): Promise<string> {
-  const { data, error } = await db.auth.admin.createUser({ email: a.email, password: a.password, email_confirm: true });
+  const { data, error } = await db.auth.admin.createUser({
+    email: a.email,
+    password: a.password,
+    email_confirm: true,
+    ...(a.username ? { user_metadata: { username: a.username } } : {}),
+  });
   if (error || !data.user) {
     if (error && /already|registered|exists/i.test(error.message)) throw new Fail(409, "account_exists");
     throw new Fail(500, error?.message ?? "create_user_failed");
@@ -179,12 +187,34 @@ async function createStaff(db: Db, caller: string, b: Body) {
       name,
       societyId: b.society_id,
       role: b.role,
+      username,
     });
-    return { user_id };
+    return { user_id, username };
   } catch (e) {
     if (e instanceof Fail && e.message === "account_exists") throw new Fail(409, "username_taken");
     throw e;
   }
+}
+
+async function listStaff(db: Db, caller: string, b: Body) {
+  if (!isUuid(b.society_id)) throw NOT_AUTHORIZED();
+  await requireAdmin(db, caller, b.society_id);
+  const rows = await must(
+    db.from("memberships").select("profile_id, role, profiles!memberships_profile_id_fkey(name)").eq("society_id", b.society_id)
+      .in("role", ["guard", "admin"]),
+  ) as Body[];
+  return await Promise.all(rows.map(async (m) => {
+    const { data } = await db.auth.admin.getUserById(m.profile_id);
+    const u = data?.user;
+    const banned = u?.banned_until ? new Date(u.banned_until).getTime() > Date.now() : false;
+    return {
+      user_id: m.profile_id as string,
+      name: (m.profiles?.name ?? "") as string,
+      role: m.role as string,
+      username: (u?.user_metadata?.username as string | undefined) ?? usernameFromEmail(u?.email),
+      disabled: banned,
+    };
+  }));
 }
 
 async function disableStaff(db: Db, caller: string, b: Body) {
@@ -303,6 +333,7 @@ const HANDLERS: Record<string, (db: Db, caller: string, b: Body) => Promise<unkn
   create_flat_account: createFlatAccount,
   set_password: setPassword,
   create_staff: createStaff,
+  list_staff: listStaff,
   disable_staff: disableStaff,
   bulk_import: bulkImport,
 };

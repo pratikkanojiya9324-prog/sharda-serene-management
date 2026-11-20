@@ -145,3 +145,9 @@ export function groupRows(rows: BulkRow[]): { groups: FlatGroup[]; rowErrors: { 
   const rowErrors = [...errors].map(([row, error]) => ({ row, error })).sort((a, b) => a.row - b.row);
   return { groups, rowErrors };
 }
+
+/** Username from a synthetic staff email (`<username>@staff.<society>.societygate.app`); null for other emails. */
+export function usernameFromEmail(email: string | null | undefined): string | null {
+  const m = /^([^@]+)@staff\./.exec(email ?? "");
+  return m ? m[1] : null;
+}

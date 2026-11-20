@@ -6,13 +6,22 @@ export interface BulkImportResult {
   results: { row: number; ok: boolean; error?: string; generated_password?: string }[];
 }
 
+export interface StaffRow {
+  user_id: string;
+  name: string;
+  role: 'guard' | 'admin';
+  username: string | null;
+  disabled: boolean;
+}
+
 type Actions = {
   create_flat_account: { req: { flat_id: string; password: string }; res: { user_id: string } };
   set_password: { req: { flat_id: string; password: string } | { user_id: string; password: string }; res: { ok: true } };
   create_staff: {
     req: { society_id: string; username: string; name: string; role: 'guard' | 'admin'; password: string };
-    res: { user_id: string };
+    res: { user_id: string; username: string };
   };
+  list_staff: { req: { society_id: string }; res: StaffRow[] };
   disable_staff: { req: { user_id: string }; res: { ok: true } };
   bulk_import: { req: { society_id: string; rows: Record<string, string>[] }; res: BulkImportResult };
 };

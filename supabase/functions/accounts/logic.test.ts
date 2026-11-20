@@ -7,6 +7,7 @@ import {
   isValidPassword,
   isValidUsername,
   staffEmail,
+  usernameFromEmail,
   validateRow,
 } from "./logic.ts";
 
@@ -93,4 +94,11 @@ Deno.test("adminOfEvery requires every target society", () => {
 Deno.test("validateRow rejects over-long relation", () => {
   const v = validateRow({ ...ok, member_name: "X", relation: "r".repeat(61) });
   assertEquals(v.ok ? null : v.error, "relation must be at most 60 characters");
+});
+
+Deno.test("usernameFromEmail parses the staff email local part", () => {
+  assertEquals(usernameFromEmail(staffEmail("guard1", "s1")), "guard1");
+  assertEquals(usernameFromEmail("flat-abc@login.societygate.app"), null);
+  assertEquals(usernameFromEmail(null), null);
+  assertEquals(usernameFromEmail(undefined), null);
 });

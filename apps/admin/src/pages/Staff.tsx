@@ -4,14 +4,13 @@ import { useToast } from '../components/Toast';
 import { Button, Card, ConfirmDialog, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Pill, Select, Table, td, th } from '../components/ui';
 import { callAccounts } from '../lib/accounts';
 import { friendlyError } from '../lib/errors';
-import { ADMIN_STAFF_SELECT } from '../lib/selects';
-import { SOCIETY_ID, supabase } from '../lib/supabase';
+import { SOCIETY_ID } from '../lib/supabase';
 
 interface StaffMember {
-  membershipId: string;
   userId: string;
   role: 'guard' | 'admin';
   name: string;
+  username: string | null;
 }
 
 export default function Staff({ userId }: { userId: string }) {
@@ -24,18 +23,18 @@ export default function Staff({ userId }: { userId: string }) {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const { data, error: err } = await supabase
-      .from('memberships')
-      .select(ADMIN_STAFF_SELECT)
-      .eq('society_id', SOCIETY_ID)
-      .in('role', ['guard', 'admin']);
-    if (err) return setError(err.message);
-    setError(null);
-    setStaff(
-      (data ?? [])
-        .map((m) => ({ membershipId: m.id, userId: m.profile_id, role: m.role as 'guard' | 'admin', name: m.profiles?.name ?? '(no name)' }))
-        .sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name)),
-    );
+    try {
+      const rows = await callAccounts('list_staff', { society_id: SOCIETY_ID });
+      setError(null);
+      setStaff(
+        rows
+          .filter((r) => !r.disabled)
+          .map((r) => ({ userId: r.user_id, role: r.role, name: r.name || '(no name)', username: r.username }))
+          .sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name)),
+      );
+    } catch (e) {
+      setError(friendlyError(e));
+    }
   }, []);
 
   useEffect(() => {
@@ -78,13 +77,14 @@ export default function Staff({ userId }: { userId: string }) {
             head={
               <tr>
                 <th className={th}>Name</th>
+                <th className={th}>Username</th>
                 <th className={th}>Role</th>
                 <th className={`${th} text-right`}>Actions</th>
               </tr>
             }
           >
             {staff?.map((s) => (
-              <tr key={s.membershipId} className="hover:bg-slate-50/60">
+              <tr key={s.userId} className="hover:bg-slate-50/60">
                 <td className={td}>
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700">
@@ -94,6 +94,7 @@ export default function Staff({ userId }: { userId: string }) {
                     {s.userId === userId && <span className="text-xs text-slate-400">(you)</span>}
                   </div>
                 </td>
+                <td className={`${td} font-mono text-sm text-slate-600`}>{s.username ?? '-'}</td>
                 <td className={td}>
                   {s.role === 'admin' ? (
                     <Pill tone="teal" icon="shield">
@@ -124,8 +125,8 @@ export default function Staff({ userId }: { userId: string }) {
       <CreateStaffModal
         open={creating}
         onClose={() => setCreating(false)}
-        onCreated={(name) => {
-          toast('success', `${name} added`);
+        onCreated={(name, username) => {
+          toast('success', `${name} added. Username: ${username}`);
           setCreating(false);
           void load();
         }}
@@ -157,7 +158,7 @@ export default function Staff({ userId }: { userId: string }) {
   );
 }
 
-function CreateStaffModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (name: string) => void }) {
+function CreateStaffModal({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (name: string, username: string) => void }) {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'guard' | 'admin'>('guard');
@@ -183,8 +184,8 @@ function CreateStaffModal({ open, onClose, onCreated }: { open: boolean; onClose
     if (password.length < 6) return setError(friendlyError('invalid_password'));
     setBusy(true);
     try {
-      await callAccounts('create_staff', { society_id: SOCIETY_ID, username: u, name: name.trim(), role, password });
-      onCreated(name.trim());
+      const res = await callAccounts('create_staff', { society_id: SOCIETY_ID, username: u, name: name.trim(), role, password });
+      onCreated(name.trim(), res.username ?? u);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
