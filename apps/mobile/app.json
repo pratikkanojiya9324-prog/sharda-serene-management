@@ -23,7 +23,7 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Allow Society Gate to take photos of visitors."
+          "cameraPermission": "Allow Society Gate to take photos of visitors and complaints."
         }
       ],
       [

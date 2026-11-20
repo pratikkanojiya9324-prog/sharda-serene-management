@@ -57,7 +57,7 @@ export default function FamilyScreen() {
                 <Text style={[type.heading, { color: colors.text }]}>{m.name}</Text>
                 <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', alignItems: 'center' }}>
                   {m.relation ? <Text style={[type.caption, { color: colors.textMuted }]}>{m.relation}</Text> : null}
-                  {actor && actor === m.name ? <Pill label="This phone" tone="brand" icon="phone-portrait-outline" /> : null}
+                  {actor && actor.trim().toLowerCase() === m.name.trim().toLowerCase() ? <Pill label="This phone" tone="brand" icon="phone-portrait-outline" /> : null}
                 </View>
               </View>
               {m.phone ? (

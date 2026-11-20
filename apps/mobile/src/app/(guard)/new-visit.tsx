@@ -45,7 +45,11 @@ export default function NewVisit() {
       const t = groupFlats(data);
       setTree(t);
       // Only one building: nothing to choose.
-      if (t.length === 1) setBuilding(t[0].building);
+      if (t.length === 1) {
+        setBuilding(t[0].building);
+        // ...and a single wing needs no choosing either.
+        if (t[0].wings.length === 1) setWing(t[0].wings[0].wing);
+      }
     });
     return () => {
       active = false;

@@ -167,6 +167,7 @@ export default function Bills() {
         bill={paying}
         flatLabel={paying ? label(paying) : ''}
         onClose={() => setPaying(null)}
+        onAlreadyPaid={() => void load()}
         onDone={(receipt) => {
           toast('success', `Payment recorded · receipt ${receipt}`);
           setPaying(null);
@@ -329,11 +330,14 @@ function MarkPaidModal({
   flatLabel,
   onClose,
   onDone,
+  onAlreadyPaid,
 }: {
   bill: Bill | null;
   flatLabel: string;
   onClose: () => void;
   onDone: (receipt: string) => void;
+  /** Someone else recorded the payment first: refresh the list behind the modal. */
+  onAlreadyPaid: () => void;
 }) {
   const [mode, setMode] = useState<PaymentMode>('upi');
   const [reference, setReference] = useState('');
@@ -357,7 +361,10 @@ function MarkPaidModal({
       ...(reference.trim() ? { p_reference: reference.trim() } : {}),
     });
     setBusy(false);
-    if (err) return setError(friendlyError(err));
+    if (err) {
+      if (err.message.startsWith('already_paid')) onAlreadyPaid();
+      return setError(friendlyError(err));
+    }
     onDone(data?.receipt_no ?? '');
   }
 

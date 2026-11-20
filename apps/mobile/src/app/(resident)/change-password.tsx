@@ -27,8 +27,12 @@ export default function ChangePasswordScreen() {
     setError(null);
     if (validation) return;
     setBusy(true);
-    const { error: err } = await supabase.auth.updateUser({ password });
-    setBusy(false);
+    let err;
+    try {
+      ({ error: err } = await supabase.auth.updateUser({ password }));
+    } finally {
+      setBusy(false);
+    }
     if (err) {
       setError(
         err.code === 'same_password'
