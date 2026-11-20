@@ -62,7 +62,7 @@ export default function Who() {
     await setActorName(name);
     if (next) router.replace(firstStop({ home: next, needsActorName: false, showBatteryGuide: battery === '1' }));
     else if (router.canGoBack()) router.back();
-    else router.replace('/');
+    else router.replace('/(resident)');
   }
 
   return (

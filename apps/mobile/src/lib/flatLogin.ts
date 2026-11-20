@@ -12,6 +12,7 @@ export type Directory =
   | { status: 'ok'; societyName: string; flats: DirectoryFlat[] }
   /** No/invalid EXPO_PUBLIC_SOCIETY_ID, or that society has no flats. */
   | { status: 'not_configured' }
+  /** Server unreachable or returned an error: retryable. */
   | { status: 'offline' };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,6 +32,7 @@ export function loginErrorText(error: AuthErrorLike, wrongCredentialsText: strin
   if (error.code === 'invalid_credentials' || /invalid login credentials/i.test(error.message ?? '')) {
     return wrongCredentialsText;
   }
+  if (error.code === 'user_banned') return 'This account has been disabled';
   if (error.status === 429) return 'Too many attempts. Wait a minute and try again';
   return 'Something went wrong, try again';
 }
@@ -61,7 +63,9 @@ export async function loadDirectory(societyId: string | undefined): Promise<Dire
   if (!societyId || !UUID.test(societyId)) return { status: 'not_configured' };
   try {
     const { data, error } = await supabase.rpc('login_directory', { p_society_id: societyId });
-    if (error) return isNetworkFailure(error) ? { status: 'offline' } : { status: 'not_configured' };
+    // Any server error (network, timeout, 5xx) is retryable; only a missing/malformed id or an
+    // empty society means the build itself is not configured.
+    if (error) return { status: 'offline' };
     if (!data || data.length === 0) return { status: 'not_configured' };
     return {
       status: 'ok',

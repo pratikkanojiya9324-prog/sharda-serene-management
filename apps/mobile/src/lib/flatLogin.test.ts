@@ -82,6 +82,11 @@ describe('signInStaff', () => {
 });
 
 describe('loginErrorText', () => {
+  it('says a banned account is disabled', () => {
+    expect(loginErrorText({ status: 400, code: 'user_banned', message: 'User is banned' }, 'x')).toBe(
+      'This account has been disabled',
+    );
+  });
   it('asks to wait when rate limited', () => {
     expect(loginErrorText({ status: 429, message: 'rate limit' }, 'x')).toBe(
       'Too many attempts. Wait a minute and try again',
@@ -111,6 +116,11 @@ describe('loadDirectory', () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'TypeError: Network request failed', code: '' } });
     expect(await loadDirectory(SOCIETY)).toEqual({ status: 'offline' });
     mockRpc.mockRejectedValue(new TypeError('Network request failed'));
+    expect(await loadDirectory(SOCIETY)).toEqual({ status: 'offline' });
+  });
+
+  it('offers a retry (offline) for any other server error, not the dead-end not-configured card', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'boom', code: '500' } });
     expect(await loadDirectory(SOCIETY)).toEqual({ status: 'offline' });
   });
 });
