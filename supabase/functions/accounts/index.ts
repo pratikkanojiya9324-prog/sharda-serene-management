@@ -3,6 +3,7 @@
 // society the target belongs to. POST { action, ... } -> JSON.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import {
+  adminOfEvery,
   type BulkRow,
   flatEmail,
   generatePassword,
@@ -47,10 +48,10 @@ async function requireAdmin(db: Db, userId: string, societyId: string | null | u
   if (!societyId || !(await isAdmin(db, userId, societyId))) throw NOT_AUTHORIZED();
 }
 
-/** True when the caller administers at least one of the societies. */
-async function adminOfAny(db: Db, userId: string, societyIds: string[]): Promise<boolean> {
-  const checks = await Promise.all(societyIds.map((s) => isAdmin(db, userId, s)));
-  return checks.some(Boolean);
+/** Societies the user administers. */
+async function adminSocieties(db: Db, userId: string): Promise<string[]> {
+  const { data } = await db.from("memberships").select("society_id").eq("profile_id", userId).eq("role", "admin");
+  return (data ?? []).map((m: Body) => m.society_id);
 }
 
 /** Society of a flat, or not_authorized (unknown ids look like missing rights). */
@@ -153,7 +154,9 @@ async function setPassword(db: Db, caller: string, b: Body) {
   } else {
     if (!isUuid(b.user_id)) throw NOT_AUTHORIZED();
     const { data } = await db.from("memberships").select("society_id").eq("profile_id", b.user_id);
-    if (!(await adminOfAny(db, caller, (data ?? []).map((m: Body) => m.society_id)))) throw NOT_AUTHORIZED();
+    if (!adminOfEvery((data ?? []).map((m: Body) => m.society_id), await adminSocieties(db, caller))) {
+      throw NOT_AUTHORIZED(); // must administer EVERY society the target belongs to
+    }
     userId = b.user_id;
   }
   await setUserPassword(db, userId, checkPassword(b.password));
@@ -188,23 +191,31 @@ async function disableStaff(db: Db, caller: string, b: Body) {
   if (!isUuid(b.user_id)) throw NOT_AUTHORIZED();
   const { data } = await db.from("memberships").select("society_id").eq("profile_id", b.user_id)
     .in("role", ["guard", "admin"]);
-  const societies = (data ?? []).map((m: Body) => m.society_id);
-  if (societies.length === 0 || !(await adminOfAny(db, caller, societies))) throw NOT_AUTHORIZED();
+  const mine = new Set(await adminSocieties(db, caller));
+  const removable = (data ?? []).map((m: Body) => m.society_id).filter((s: string) => mine.has(s));
+  if (removable.length === 0) throw NOT_AUTHORIZED();
   if (b.user_id === caller) throw new Fail(400, "cannot_disable_self");
-  await must(db.from("memberships").delete().eq("profile_id", b.user_id).in("role", ["guard", "admin"]));
+  // Only staff memberships in societies the caller administers are removed.
+  await must(
+    db.from("memberships").delete().eq("profile_id", b.user_id).in("role", ["guard", "admin"])
+      .in("society_id", removable),
+  );
+  const { data: left } = await db.from("memberships").select("id").eq("profile_id", b.user_id).limit(1);
+  if ((left?.length ?? 0) > 0) throw new Fail(409, "still_member_elsewhere"); // login stays enabled
   const { error } = await db.auth.admin.updateUserById(b.user_id, { ban_duration: "876000h" });
   if (error) throw new Fail(500, error.message);
   return { ok: true };
 }
 
-const MAX_BULK_ROWS = 2000;
+// Each flat costs several sequential round trips; the admin site sends chunks of <= 200 rows.
+const MAX_BULK_ROWS = 200;
 
 async function bulkImport(db: Db, caller: string, b: Body) {
   if (!isUuid(b.society_id)) throw NOT_AUTHORIZED();
   await requireAdmin(db, caller, b.society_id);
   const societyId: string = b.society_id;
   if (!Array.isArray(b.rows)) throw new Fail(400, "invalid_rows");
-  if (b.rows.length > MAX_BULK_ROWS) throw new Fail(400, "too_many_rows");
+  if (b.rows.length > MAX_BULK_ROWS) throw new Fail(400, "too_many_rows: send at most 200 rows per call");
 
   const { groups, rowErrors } = groupRows(b.rows as BulkRow[]);
   const results: { row: number; ok: boolean; error?: string; generated_password?: string }[] = rowErrors.map((
@@ -216,7 +227,7 @@ async function bulkImport(db: Db, caller: string, b: Body) {
     building: string;
     name: string;
   }[];
-  const towerId = new Map(towers.map((t) => [`${t.building}|${t.name}`, t.id]));
+  const towerId = new Map(towers.map((t) => [`${t.building.toLowerCase()}|${t.name}`, t.id]));
   const flats = await must(db.from("flats").select("id, tower_id, number").eq("society_id", societyId)) as {
     id: string;
     tower_id: string;
@@ -225,8 +236,9 @@ async function bulkImport(db: Db, caller: string, b: Body) {
   const flatId = new Map(flats.map((f) => [`${f.tower_id}|${f.number}`, f.id]));
 
   for (const g of groups) {
+    let generated: string | undefined; // reported even if a later step fails
     try {
-      const tkey = `${g.building}|${g.wing}`;
+      const tkey = `${g.building.toLowerCase()}|${g.wing}`; // building matched case-insensitively
       let tid = towerId.get(tkey);
       if (!tid) {
         const t = await must(
@@ -246,12 +258,11 @@ async function bulkImport(db: Db, caller: string, b: Body) {
         flatId.set(fkey, fid);
       }
 
-      let generated: string | undefined;
       const existing = await findFlatUser(db, fid);
       if (existing) {
         if (g.password) await setUserPassword(db, existing, g.password);
       } else {
-        const password = g.password ?? (generated = generatePassword());
+        const password = g.password ?? generatePassword();
         await createAccount(db, {
           email: flatEmail(fid),
           password,
@@ -260,6 +271,7 @@ async function bulkImport(db: Db, caller: string, b: Body) {
           role: "resident",
           flatId: fid,
         });
+        if (!g.password) generated = password; // account exists now: report it even if a later step fails
       }
 
       if (g.replaceFamily) {
@@ -277,7 +289,9 @@ async function bulkImport(db: Db, caller: string, b: Body) {
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      for (const row of g.rows) results.push({ row, ok: false, error: msg });
+      g.rows.forEach((row, i) =>
+        results.push({ row, ok: false, error: msg, ...(i === 0 && generated ? { generated_password: generated } : {}) })
+      );
     }
   }
   results.sort((a, b) => a.row - b.row);

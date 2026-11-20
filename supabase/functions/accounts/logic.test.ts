@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import {
+  adminOfEvery,
   flatEmail,
   generatePassword,
   groupRows,
@@ -81,4 +82,15 @@ Deno.test("groupRows: invalid row fails its whole flat so family is never half-r
     { row: 2, error: "member_phone must be 7-15 digits" },
     { row: 4, error: "building is required" },
   ]);
+});
+
+Deno.test("adminOfEvery requires every target society", () => {
+  assertEquals(adminOfEvery(["a"], ["a", "b"]), true);
+  assertEquals(adminOfEvery(["a", "b"], ["b"]), false);
+  assertEquals(adminOfEvery([], ["a"]), false);
+});
+
+Deno.test("validateRow rejects over-long relation", () => {
+  const v = validateRow({ ...ok, member_name: "X", relation: "r".repeat(61) });
+  assertEquals(v.ok ? null : v.error, "relation must be at most 60 characters");
 });

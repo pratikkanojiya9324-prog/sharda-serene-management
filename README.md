@@ -211,10 +211,10 @@ The `development` profile builds a dev client; it also needs `npx expo install e
 | action | fields | notes |
 | --- | --- | --- |
 | `create_flat_account` | `flat_id`, `password` | 409 `account_exists` if the flat already has one |
-| `set_password` | `flat_id` or `user_id`, `password` | admin resets any flat or staff password |
+| `set_password` | `flat_id` or `user_id`, `password` | by `flat_id` you must administer the flat's society; by `user_id` you must administer every society the user belongs to |
 | `create_staff` | `society_id`, `username`, `name`, `role` (guard/admin), `password` | 409 `username_taken` |
-| `disable_staff` | `user_id` | removes the staff memberships and bans the login; not yourself |
-| `bulk_import` | `society_id`, `rows`: `[{building, wing, flat, password?, member_name?, member_phone?, relation?}]` | upsert by building/wing/flat (missing building, wing or flat is created); blank password keeps the current one, and a new account without one gets a random 8-character password returned as `generated_password`; a flat whose rows name members has its family replaced wholesale; one result per row; a flat with any invalid row is skipped entirely |
+| `disable_staff` | `user_id` | removes the target's staff memberships in societies you administer; bans the login only if no membership remains anywhere (else 409 `still_member_elsewhere`); not yourself |
+| `bulk_import` | `society_id`, `rows`: `[{building, wing, flat, password?, member_name?, member_phone?, relation?}]` | upsert by building/wing/flat (missing building, wing or flat is created); blank password keeps the current one, and a new account without one gets a random 8-character password returned as `generated_password`; a flat whose rows name members has its family replaced wholesale; one result per row; a flat with any invalid row is skipped entirely; building names match existing ones case-insensitively; **at most 200 rows per call** (the admin site sends chunks of 200; larger requests get 400 `too_many_rows`); `generated_password` is also returned on a failed row if the account was created before the failure |
 
 Anyone who is not an admin of the target society gets 403 `{"error":"not_authorized"}`.
 

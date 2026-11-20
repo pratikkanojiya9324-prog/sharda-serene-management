@@ -26,6 +26,12 @@ export function generatePassword(): string {
   return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
 }
 
+/** True when every target society is one the caller administers (and there is at least one). */
+export function adminOfEvery(targetSocieties: string[], callerAdminSocieties: string[]): boolean {
+  const mine = new Set(callerAdminSocieties);
+  return targetSocieties.length > 0 && targetSocieties.every((s) => mine.has(s));
+}
+
 export type BulkRow = {
   building?: unknown;
   wing?: unknown;
@@ -66,6 +72,7 @@ export function validateRow(r: BulkRow): RowCheck {
     const phone = phoneRaw.replace(/[\s-]/g, "");
     if (phone && !/^\+?\d{7,15}$/.test(phone)) return { ok: false, error: "member_phone must be 7-15 digits" };
     if (name.length > 60) return { ok: false, error: "member_name must be at most 60 characters" };
+    if (relation.length > 60) return { ok: false, error: "relation must be at most 60 characters" };
     member = { name, phone: phone || undefined, relation: relation || undefined };
   } else if (phoneRaw || relation) {
     return { ok: false, error: "member_name is required when member_phone or relation is given" };
