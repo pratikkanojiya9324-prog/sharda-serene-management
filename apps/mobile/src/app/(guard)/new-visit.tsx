@@ -1,9 +1,10 @@
 import { normalizePhone } from '@society-gate/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, Text, TextInput } from 'react-native';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { filterFlats } from '@/lib/flatPicker';
 import { useGuardSociety } from '@/lib/guardSociety';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
@@ -47,6 +48,7 @@ export default function NewVisit() {
   const [flats, setFlats] = useState<Flat[]>([]);
   const [towerId, setTowerId] = useState<string | null>(null);
   const [flatId, setFlatId] = useState<string | null>(null);
+  const [flatQuery, setFlatQuery] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [purpose, setPurpose] = useState<Purpose>('guest');
@@ -61,20 +63,27 @@ export default function NewVisit() {
       .select('id, name')
       .eq('society_id', societyId)
       .order('name')
-      .then(({ data, error: err }) => (err ? setError(err.message) : setTowers(data ?? [])));
+      .then(({ data, error: err }) => {
+        if (err) return setError(err.message);
+        setTowers(data ?? []);
+        // One tower: nothing to choose.
+        if (data?.length === 1) setTowerId(data[0].id);
+      });
   }, [societyId]);
 
   useEffect(() => {
     setFlatId(null);
     setFlats([]);
+    setFlatQuery('');
     if (!towerId) return;
     supabase
       .from('flats')
       .select('id, number')
       .eq('tower_id', towerId)
-      .order('number')
       .then(({ data, error: err }) => (err ? setError(err.message) : setFlats(data ?? [])));
   }, [towerId]);
+
+  const shownFlats = useMemo(() => filterFlats(flats, flatQuery), [flats, flatQuery]);
 
   async function takePhoto() {
     setError(null);
@@ -132,7 +141,7 @@ export default function NewVisit() {
   }
 
   return (
-    <ScrollView contentContainerStyle={[ui.screen, { justifyContent: 'flex-start' }]}>
+    <ScrollView contentContainerStyle={[ui.screen, { justifyContent: 'flex-start' }]} keyboardShouldPersistTaps="handled">
       {societyError ? <Text style={ui.error}>{societyError}</Text> : null}
       <Text style={ui.body}>Tower</Text>
       <ChipRow>
@@ -140,12 +149,24 @@ export default function NewVisit() {
           <Chip key={t.id} label={t.name} selected={t.id === towerId} onPress={() => setTowerId(t.id)} />
         ))}
       </ChipRow>
-      {towerId ? <Text style={ui.body}>Flat</Text> : null}
-      <ChipRow>
-        {flats.map((f) => (
-          <Chip key={f.id} label={f.number} selected={f.id === flatId} onPress={() => setFlatId(f.id)} />
-        ))}
-      </ChipRow>
+      {towerId ? (
+        <>
+          <TextInput
+            style={ui.input}
+            placeholder="Flat number"
+            value={flatQuery}
+            onChangeText={setFlatQuery}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {shownFlats.map((f) => (
+              <Chip key={f.id} label={f.number} selected={f.id === flatId} onPress={() => setFlatId(f.id)} />
+            ))}
+          </View>
+          {flats.length > 0 && shownFlats.length === 0 ? <Text style={ui.body}>No flat matches.</Text> : null}
+        </>
+      ) : null}
       <TextInput style={ui.input} placeholder="Visitor name" value={name} onChangeText={setName} />
       <TextInput
         style={ui.input}
