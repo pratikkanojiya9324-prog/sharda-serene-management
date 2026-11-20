@@ -10,3 +10,4 @@ dist/
 coverage/
 *.tsbuildinfo
 supabase/.temp/
+!apps/admin/.env.production
