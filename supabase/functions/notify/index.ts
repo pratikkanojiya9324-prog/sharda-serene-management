@@ -1,11 +1,96 @@
-// Database Webhook target: INSERT on public.visits -> Expo push to the flat's residents.
+// Webhook-style target for the notify triggers (visits, notices, complaints,
+// complaint_comments, bills) -> Expo push. Payload: { type, table, record, old_record }.
 // Auth: the trigger sends `Authorization: Bearer <NOTIFY_SECRET>` (gateway JWT check
 // is off for this function, see supabase/config.toml). DB access uses the
-// auto-provided SUPABASE_SERVICE_ROLE_KEY.
-import { createClient } from "npm:@supabase/supabase-js@2";
+// auto-provided SUPABASE_SERVICE_ROLE_KEY. Recipients are resolved server-side.
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { isAuthorized } from "./auth.ts";
 import { sendBatch } from "./expo.ts";
-import { buildMessages, chunk, type ExpoMessage, type VisitRow } from "./push.ts";
+import {
+  buildBillCreated,
+  buildBillPaid,
+  buildComplaintCreated,
+  buildComplaintReply,
+  buildComplaintStatus,
+  buildMessages,
+  buildNoticePosted,
+  chunk,
+  type ExpoMessage,
+  flatLabel,
+  type RoundMessage,
+  type VisitRow,
+} from "./push.ts";
+
+type Row = Record<string, any>;
+type Tokens = { tokens: string[] } | { error: string };
+
+// deno-lint-ignore no-explicit-any
+async function tokensFor(supabase: SupabaseClient<any, any, any>, profileIds: string[]): Promise<Tokens> {
+  if (profileIds.length === 0) return { tokens: [] };
+  const { data, error } = await supabase.from("push_tokens").select("token").in("profile_id", profileIds);
+  if (error) return { error: error.message };
+  return { tokens: (data ?? []).map((t: Row) => t.token) };
+}
+
+/** Profiles with a membership of `role` in the society (optionally limited to `only`). */
+async function memberProfiles(
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  societyId: string,
+  role: "resident" | "admin",
+  only?: string[],
+): Promise<string[] | { error: string }> {
+  if (only && only.length === 0) return [];
+  let q = supabase.from("memberships").select("profile_id").eq("society_id", societyId).eq("role", role);
+  if (only) q = q.in("profile_id", only);
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  return (data ?? []).map((m: Row) => m.profile_id);
+}
+
+/** Resident members linked to the flat (and resident in the flat's society). */
+// deno-lint-ignore no-explicit-any
+async function flatTokens(supabase: SupabaseClient<any, any, any>, flatId: string, societyId: string): Promise<Tokens> {
+  const { data: links, error } = await supabase.from("flat_residents").select("profile_id").eq("flat_id", flatId);
+  if (error) return { error: error.message };
+  const ids = await memberProfiles(supabase, societyId, "resident", (links ?? []).map((l: Row) => l.profile_id));
+  if ("error" in ids) return ids;
+  return tokensFor(supabase, ids);
+}
+
+// deno-lint-ignore no-explicit-any
+async function societyTokens(supabase: SupabaseClient<any, any, any>, societyId: string, role: "resident" | "admin"): Promise<Tokens> {
+  const ids = await memberProfiles(supabase, societyId, role);
+  if ("error" in ids) return ids;
+  return tokensFor(supabase, ids);
+}
+
+// deno-lint-ignore no-explicit-any
+async function complaintFlatLabel(supabase: SupabaseClient<any, any, any>, flatId: string): Promise<string> {
+  const { data } = await supabase.from("flats").select("number, towers(name, building)").eq("id", flatId).maybeSingle();
+  // deno-lint-ignore no-explicit-any
+  const tower = (data as any)?.towers;
+  if (!data || !tower) return "Flat";
+  return flatLabel(tower.building, tower.name, data.number);
+}
+
+// deno-lint-ignore no-explicit-any
+async function sendAll(supabase: SupabaseClient<any, any, any>, messages: (ExpoMessage | RoundMessage)[]) {
+  const dead: string[] = [];
+  let failedBatches = 0;
+  for (const batch of chunk(messages, 100)) {
+    const { ok, tickets } = await sendBatch(batch as ExpoMessage[]);
+    if (!ok) failedBatches++;
+    tickets.forEach((t, i) => {
+      if (t.status === "error" && t.details?.error === "DeviceNotRegistered") dead.push(batch[i].to);
+    });
+  }
+  if (dead.length > 0) await supabase.from("push_tokens").delete().in("token", dead);
+  return Response.json({ sent: messages.length, failedBatches, removed: dead.length });
+}
+
+const skip = (why: string) => Response.json({ skipped: why });
+const fail = (message: string) => new Response(message, { status: 500 });
 
 Deno.serve(async (req) => {
   if (!isAuthorized(req.headers.get("Authorization"), Deno.env.get("NOTIFY_SECRET"))) {
@@ -13,44 +98,64 @@ Deno.serve(async (req) => {
   }
 
   const payload = await req.json().catch(() => null);
-  if (payload?.type !== "INSERT" || payload?.table !== "visits" || !payload.record) {
-    return Response.json({ skipped: "not a visits insert" });
-  }
-  const visit = payload.record as VisitRow & { flat_id: string; society_id: string };
-  const isPending = visit.status === "pending" && visit.pass_id === null;
-  if (!isPending && visit.pass_id === null) {
-    return Response.json({ skipped: "not notifiable" });
-  }
+  const record = payload?.record as Row | undefined;
+  const old = payload?.old_record as Row | undefined;
+  if (!payload || !record) return skip("no record");
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const kind = `${payload.table}:${payload.type}`;
+  let built: { tokens: string[] } | { error: string };
+  let make: (tokens: string[]) => (ExpoMessage | RoundMessage)[];
 
-  // Current residents: flat link AND a resident membership in the flat's society.
-  const { data: links, error: linkErr } = await supabase
-    .from("flat_residents").select("profile_id").eq("flat_id", visit.flat_id);
-  if (linkErr) return new Response(linkErr.message, { status: 500 });
-  const { data: members, error: memErr } = await supabase
-    .from("memberships").select("profile_id")
-    .eq("society_id", visit.society_id).eq("role", "resident")
-    .in("profile_id", (links ?? []).map((l) => l.profile_id));
-  if (memErr) return new Response(memErr.message, { status: 500 });
-  const profileIds = (members ?? []).map((m) => m.profile_id);
-  if (profileIds.length === 0) return Response.json({ sent: 0 });
-
-  const { data: tokenRows, error: tokErr } = await supabase
-    .from("push_tokens").select("token").in("profile_id", profileIds);
-  if (tokErr) return new Response(tokErr.message, { status: 500 });
-  const messages = buildMessages(visit, (tokenRows ?? []).map((t) => t.token));
-
-  const dead: string[] = [];
-  let failedBatches = 0;
-  for (const batch of chunk<ExpoMessage>(messages, 100)) {
-    const { ok, tickets } = await sendBatch(batch);
-    if (!ok) failedBatches++;
-    tickets.forEach((t, i) => {
-      if (t.status === "error" && t.details?.error === "DeviceNotRegistered") dead.push(batch[i].to);
-    });
+  switch (kind) {
+    case "visits:INSERT": {
+      const visit = record as VisitRow & { flat_id: string; society_id: string };
+      const isPending = visit.status === "pending" && visit.pass_id === null;
+      if (!isPending && visit.pass_id === null) return skip("not notifiable");
+      built = await flatTokens(supabase, visit.flat_id, visit.society_id);
+      make = (t) => buildMessages(visit, t);
+      break;
+    }
+    case "notices:INSERT":
+      built = await societyTokens(supabase, record.society_id, "resident");
+      make = (t) => buildNoticePosted({ id: record.id, title: record.title }, t);
+      break;
+    case "complaints:INSERT": {
+      const label = await complaintFlatLabel(supabase, record.flat_id);
+      built = await societyTokens(supabase, record.society_id, "admin");
+      make = (t) => buildComplaintCreated({ id: record.id, category: record.category, status: record.status }, label, t);
+      break;
+    }
+    case "complaints:UPDATE":
+      if (!old || old.status === record.status) return skip("status unchanged");
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildComplaintStatus({ id: record.id, category: record.category, status: record.status }, t);
+      break;
+    case "complaint_comments:INSERT": {
+      const { data: c, error } = await supabase
+        .from("complaints").select("flat_id").eq("id", record.complaint_id).maybeSingle();
+      if (error) return fail(error.message);
+      if (!c) return skip("complaint not found");
+      built = await flatTokens(supabase, c.flat_id, record.society_id);
+      make = (t) => buildComplaintReply(record.complaint_id, t);
+      break;
+    }
+    case "bills:INSERT":
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildBillCreated(
+        { id: record.id, amount: record.amount, due_date: record.due_date, receipt_no: record.receipt_no }, t);
+      break;
+    case "bills:UPDATE":
+      if (!old || old.status === "paid" || record.status !== "paid") return skip("not a payment");
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildBillPaid(
+        { id: record.id, amount: record.amount, due_date: record.due_date, receipt_no: record.receipt_no }, t);
+      break;
+    default:
+      return skip(`unhandled ${kind}`);
   }
-  if (dead.length > 0) await supabase.from("push_tokens").delete().in("token", dead);
 
-  return Response.json({ sent: messages.length, failedBatches, removed: dead.length });
+  if ("error" in built) return fail(built.error);
+  if (built.tokens.length === 0) return Response.json({ sent: 0 });
+  return sendAll(supabase, make(built.tokens));
 });
