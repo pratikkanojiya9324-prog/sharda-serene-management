@@ -319,12 +319,49 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "can_view_profile":
+            "add_household_member":
+{ Args: { "p_flat_id": string,"p_name": string,"p_phone": string }; Returns: {
+              "claimed_at": string | null,
+"created_at": string,
+"created_by": string | null,
+"flat_id": string | null,
+"id": string,
+"name": string,
+"phone": string,
+"role": Database["public"]['Enums']["member_role"],
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "invites"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"can_view_profile":
 { Args: { "p_profile": string }; Returns: boolean
                            },
 "claim_invites":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"create_pass":
+{ Args: { "p_flat_id": string,"p_guest_name": string,"p_valid_from": string,"p_valid_to": string }; Returns: {
+              "code": string,
+"created_at": string,
+"created_by": string,
+"flat_id": string,
+"guest_name": string,
+"id": string,
+"revoked_at": string | null,
+"society_id": string,
+"valid_from": string,
+"valid_to": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "passes"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "create_visit":
 { Args: { "p_flat_id": string,"p_name": string,"p_phone": string,"p_photo_path": string,"p_purpose": Database["public"]['Enums']["visit_purpose"] }; Returns: {
               "created_at": string,
@@ -447,6 +484,50 @@ isOneToOne: false
       } },
 "respond_to_visit":
 { Args: { "p_response": Database["public"]['Enums']["visit_status"],"p_visit_id": string }; Returns: {
+              "created_at": string,
+"created_by": string,
+"entry_at": string | null,
+"exit_at": string | null,
+"flat_id": string,
+"id": string,
+"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
+"name": string,
+"pass_id": string | null,
+"phone": string | null,
+"photo_path": string | null,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"responded_at": string | null,
+"responded_by": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["visit_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"revoke_pass":
+{ Args: { "p_pass_id": string }; Returns: {
+              "code": string,
+"created_at": string,
+"created_by": string,
+"flat_id": string,
+"guest_name": string,
+"id": string,
+"revoked_at": string | null,
+"society_id": string,
+"valid_from": string,
+"valid_to": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "passes"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"use_pass":
+{ Args: { "p_code": string }; Returns: {
               "created_at": string,
 "created_by": string,
 "entry_at": string | null,
