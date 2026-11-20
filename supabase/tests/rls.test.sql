@@ -29,6 +29,7 @@ insert into auth.users (id, phone) values
   ('bbbbbbbb-0000-0000-0000-00000000a901', '910000000006'),
   ('bbbbbbbb-0000-0000-0000-00000000e101', '910000000007'),
   ('cccccccc-0000-0000-0000-000000000001', '919876543210');
+update auth.users set phone_confirmed_at = now() where id = 'cccccccc-0000-0000-0000-000000000001';
 
 insert into profiles (id, name, phone) values
   ('aaaaaaaa-0000-0000-0000-00000000ad01', 'Admin A',    '+910000000001'),
