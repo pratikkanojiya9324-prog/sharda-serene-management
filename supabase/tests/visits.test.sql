@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(21);
 
 insert into societies (id, name) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Society A'),
@@ -14,11 +14,13 @@ insert into auth.users (id, phone) values
   ('aaaaaaaa-0000-0000-0000-00000000a901', '910000000002'),
   ('aaaaaaaa-0000-0000-0000-00000000e101', '910000000003'),
   ('aaaaaaaa-0000-0000-0000-00000000e102', '910000000008'),
+  ('aaaaaaaa-0000-0000-0000-00000000e103', '910000000009'),
   ('bbbbbbbb-0000-0000-0000-00000000a901', '910000000006');
 insert into profiles (id, name, phone) values
   ('aaaaaaaa-0000-0000-0000-00000000a901', 'Guard A',     '+910000000002'),
   ('aaaaaaaa-0000-0000-0000-00000000e101', 'Resident A1', '+910000000003'),
   ('aaaaaaaa-0000-0000-0000-00000000e102', 'Resident A1b','+910000000008'),
+  ('aaaaaaaa-0000-0000-0000-00000000e103', 'Removed Res','+910000000009'),
   ('bbbbbbbb-0000-0000-0000-00000000a901', 'Guard B',     '+910000000006');
 insert into memberships (profile_id, society_id, role) values
   ('aaaaaaaa-0000-0000-0000-00000000a901', 'aaaaaaaa-0000-0000-0000-000000000000', 'guard'),
@@ -27,9 +29,11 @@ insert into memberships (profile_id, society_id, role) values
   ('bbbbbbbb-0000-0000-0000-00000000a901', 'bbbbbbbb-0000-0000-0000-000000000000', 'guard');
 insert into flat_residents (flat_id, profile_id) values
   ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e101'),
-  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e102');
+  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e102'),
+  ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-00000000e103');
 insert into push_tokens (profile_id, token, platform) values
-  ('aaaaaaaa-0000-0000-0000-00000000e101', 'tok-a1', 'android');
+  ('aaaaaaaa-0000-0000-0000-00000000e101', 'tok-a1', 'android'),
+  ('aaaaaaaa-0000-0000-0000-00000000e103', 'tok-removed', 'android');
 
 -- Scratch table (created as postgres) to carry visit ids between statements
 create temp table t (k text primary key, id uuid);
@@ -54,8 +58,13 @@ select throws_ok(
   'P0001', 'not_authorized', 'guard of A cannot create visit for flat of B');
 
 -- Flat contacts / app users
-select is((select count(*)::int from flat_contacts('aaaaaaaa-0000-0000-0000-0000000000f1')), 2, 'guard sees flat contacts');
+select is((select count(*)::int from flat_contacts('aaaaaaaa-0000-0000-0000-0000000000f1')), 2, 'guard sees contacts of current residents only (removed resident excluded)');
 select is(visit_has_app_users('aaaaaaaa-0000-0000-0000-0000000000f1'), true, 'flat with push token has app users');
+reset role;
+delete from push_tokens where token = 'tok-a1';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000a901","role":"authenticated"}', true);
+select is(visit_has_app_users('aaaaaaaa-0000-0000-0000-0000000000f1'), false, 'push token of a removed resident does not count');
 
 -- First response wins
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e101","role":"authenticated"}', true);

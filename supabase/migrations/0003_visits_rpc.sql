@@ -133,6 +133,9 @@ begin
   return query
     select p.name, p.phone
     from public.flat_residents fr
+    join public.flats f on f.id = fr.flat_id
+    join public.memberships m
+      on m.profile_id = fr.profile_id and m.society_id = f.society_id and m.role = 'resident'
     join public.profiles p on p.id = fr.profile_id
     where fr.flat_id = p_flat_id
     order by p.name;
@@ -153,6 +156,9 @@ begin
   return exists (
     select 1
     from public.flat_residents fr
+    join public.flats f on f.id = fr.flat_id
+    join public.memberships m
+      on m.profile_id = fr.profile_id and m.society_id = f.society_id and m.role = 'resident'
     join public.push_tokens t on t.profile_id = fr.profile_id
     where fr.flat_id = p_flat_id
   );
