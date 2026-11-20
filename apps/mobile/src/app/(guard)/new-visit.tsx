@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { filterFlats } from '@/lib/flatPicker';
+import { guardErrorText } from '@/lib/guardErrors';
 import { useGuardSociety } from '@/lib/guardSociety';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
@@ -67,7 +68,7 @@ export default function NewVisit() {
       .eq('society_id', societyId)
       .order('name')
       .then(({ data, error: err }) => {
-        if (err) return setError(err.message);
+        if (err) return setError(guardErrorText(err.message));
         setTowers(data ?? []);
         // One tower: nothing to choose.
         if (data?.length === 1) setTowerId(data[0].id);
@@ -83,7 +84,7 @@ export default function NewVisit() {
       .from('flats')
       .select('id, number')
       .eq('tower_id', towerId)
-      .then(({ data, error: err }) => (err ? setError(err.message) : setFlats(data ?? [])));
+      .then(({ data, error: err }) => (err ? setError(guardErrorText(err.message)) : setFlats(data ?? [])));
   }, [towerId]);
 
   const shownFlats = useMemo(() => filterFlats(flats, flatQuery), [flats, flatQuery]);
@@ -139,7 +140,7 @@ export default function NewVisit() {
         params: photoFailed ? { id: data.id, photo: 'failed' } : { id: data.id },
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create the visit');
+      setError(guardErrorText(e && typeof e === 'object' && 'message' in e ? String(e.message) : null));
     } finally {
       setBusy(false);
       inFlight.current = false;

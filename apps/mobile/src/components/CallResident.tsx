@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
+import { guardErrorText } from '@/lib/guardErrors';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 
@@ -22,7 +23,7 @@ export function CallResident({ flatId, visible, noAppUsers = false }: Props) {
     let active = true;
     supabase.rpc('flat_contacts', { p_flat_id: flatId }).then(({ data, error: err }) => {
       if (!active) return;
-      if (err) setError(err.message);
+      if (err) setError(guardErrorText(err.message));
       else setContacts(data ?? []);
     });
     return () => {

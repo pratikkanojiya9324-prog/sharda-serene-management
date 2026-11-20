@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { CallResident } from '@/components/CallResident';
+import { guardErrorText } from '@/lib/guardErrors';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 import { useLiveVisit } from '@/lib/useLiveVisit';
@@ -17,12 +18,6 @@ const BANNER: Record<VisitStatus, { text: string; color: string }> = {
   expired: { text: 'No response', color: '#6b7280' },
 };
 
-const ACTION_ERRORS: Record<string, string> = {
-  not_allowed_in: 'This visitor has not been approved to enter.',
-  not_entered: 'This visitor has not entered yet.',
-  already_responded: 'The resident already responded.',
-  not_authorized: 'You are not allowed to do that.',
-};
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -58,14 +53,20 @@ export default function VisitScreen() {
     setBusy(true);
     const { data, error: err } = await action();
     setBusy(false);
-    if (err) setError(ACTION_ERRORS[err.message] ?? err.message);
+    if (err) setError(guardErrorText(err.message));
     else if (data) applyVisit(data);
   }
 
   if (!visit) {
     return (
       <View style={ui.screen}>
-        {loadError ? <Text style={ui.error}>{loadError.message}</Text> : <ActivityIndicator />}
+        {loadError ? (
+          <Text style={ui.error}>
+            {loadError.code === 'PGRST116' ? 'This visit was not found.' : guardErrorText(loadError.message)}
+          </Text>
+        ) : (
+          <ActivityIndicator />
+        )}
       </View>
     );
   }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { guardErrorText } from './guardErrors';
 import { supabase } from './supabase';
 
 /**
@@ -26,8 +27,8 @@ export function useGuardSociety(): { societyId: string | null; error: string | n
         .order('created_at')
         .limit(1);
       if (!active) return;
-      if (err) setError(err.message);
-      else if (!data?.[0]) setError('No guard membership found');
+      if (err) setError(guardErrorText(err.message));
+      else if (!data?.[0]) setError('This number is not set up as a guard. Ask your admin.');
       else setSocietyId(data[0].society_id);
     })();
     return () => {
