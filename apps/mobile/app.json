@@ -15,7 +15,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.societygate.app"
+      "package": "in.societygate.app"
     },
     "plugins": [
       "expo-router",
@@ -28,7 +28,7 @@
           "imageWidth": 76
         }
       ],
-      "expo-notifications"
+      ["expo-notifications", { "color": "#208AEF", "icon": "./assets/images/android-icon-monochrome.png" }]
     ],
     "experiments": {
       "typedRoutes": true,
