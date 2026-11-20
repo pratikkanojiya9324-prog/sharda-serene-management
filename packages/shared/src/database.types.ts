@@ -23,7 +23,33 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "flat_residents": {
+            "family_members": {
+                  Row: {
+                    "created_at": string,"flat_id": string,"id": string,"name": string,"phone": string | null,"relation": string | null,"society_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"flat_id": string,"id"?: string,"name": string,"phone"?: string | null,"relation"?: string | null,"society_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"flat_id"?: string,"id"?: string,"name"?: string,"phone"?: string | null,"relation"?: string | null,"society_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "family_members_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "family_members_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"flat_residents": {
                   Row: {
                     "added_by": string | null,"created_at": string,"flat_id": string,"id": string,"profile_id": string
                   }
@@ -153,14 +179,14 @@ isOneToOne: false
                   ]
                 },"passes": {
                   Row: {
-                    "code": string,"created_at": string,"created_by": string,"flat_id": string,"guest_name": string,"id": string,"revoked_at": string | null,"society_id": string,"valid_from": string,"valid_to": string
+                    "code": string,"created_at": string,"created_by": string,"created_by_name": string | null,"flat_id": string,"guest_name": string,"id": string,"revoked_at": string | null,"society_id": string,"valid_from": string,"valid_to": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "code": string,"created_at"?: string,"created_by": string,"flat_id": string,"guest_name": string,"id"?: string,"revoked_at"?: string | null,"society_id": string,"valid_from": string,"valid_to": string
+                    "code": string,"created_at"?: string,"created_by": string,"created_by_name"?: string | null,"flat_id": string,"guest_name": string,"id"?: string,"revoked_at"?: string | null,"society_id": string,"valid_from": string,"valid_to": string
                   }
                   Update: {
-                    "code"?: string,"created_at"?: string,"created_by"?: string,"flat_id"?: string,"guest_name"?: string,"id"?: string,"revoked_at"?: string | null,"society_id"?: string,"valid_from"?: string,"valid_to"?: string
+                    "code"?: string,"created_at"?: string,"created_by"?: string,"created_by_name"?: string | null,"flat_id"?: string,"guest_name"?: string,"id"?: string,"revoked_at"?: string | null,"society_id"?: string,"valid_from"?: string,"valid_to"?: string
                   }
                   Relationships: [
                     {
@@ -191,14 +217,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"phone": string
+                    "created_at": string,"id": string,"name": string,"phone": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id": string,"name": string,"phone": string
+                    "created_at"?: string,"id": string,"name": string,"phone"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"phone"?: string
+                    "created_at"?: string,"id"?: string,"name"?: string,"phone"?: string | null
                   }
                   Relationships: [
                     
@@ -239,14 +265,14 @@ isOneToOne: false
                   ]
                 },"towers": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"society_id": string
+                    "building": string,"created_at": string,"id": string,"name": string,"society_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"society_id": string
+                    "building"?: string,"created_at"?: string,"id"?: string,"name": string,"society_id": string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"society_id"?: string
+                    "building"?: string,"created_at"?: string,"id"?: string,"name"?: string,"society_id"?: string
                   }
                   Relationships: [
                     {
@@ -259,14 +285,14 @@ isOneToOne: false
                   ]
                 },"visits": {
                   Row: {
-                    "created_at": string,"created_by": string,"entry_at": string | null,"exit_at": string | null,"flat_id": string,"id": string,"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id": string | null,"phone": string | null,"photo_path": string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at": string | null,"responded_by": string | null,"society_id": string,"status": Database["public"]['Enums']["visit_status"]
+                    "created_at": string,"created_by": string,"entry_at": string | null,"exit_at": string | null,"flat_id": string,"id": string,"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id": string | null,"phone": string | null,"photo_path": string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at": string | null,"responded_by": string | null,"responded_by_name": string | null,"society_id": string,"status": Database["public"]['Enums']["visit_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by": string,"entry_at"?: string | null,"exit_at"?: string | null,"flat_id": string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["visit_status"]
+                    "created_at"?: string,"created_by": string,"entry_at"?: string | null,"exit_at"?: string | null,"flat_id": string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"responded_by_name"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["visit_status"]
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string,"entry_at"?: string | null,"exit_at"?: string | null,"flat_id"?: string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name"?: string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose"?: Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["visit_status"]
+                    "created_at"?: string,"created_by"?: string,"entry_at"?: string | null,"exit_at"?: string | null,"flat_id"?: string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name"?: string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose"?: Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"responded_by_name"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["visit_status"]
                   }
                   Relationships: [
                     {
@@ -343,11 +369,15 @@ isOneToOne: false
 "claim_invites":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"clean_actor_name":
+{ Args: { "p_name": string }; Returns: string
+                           },
 "create_pass":
-{ Args: { "p_flat_id": string,"p_guest_name": string,"p_valid_from": string,"p_valid_to": string }; Returns: {
+{ Args: { "p_actor_name"?: string,"p_flat_id": string,"p_guest_name": string,"p_valid_from": string,"p_valid_to": string }; Returns: {
               "code": string,
 "created_at": string,
 "created_by": string,
+"created_by_name": string | null,
 "flat_id": string,
 "guest_name": string,
 "id": string,
@@ -378,6 +408,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }
@@ -392,7 +423,7 @@ isOneToOne: false
                            },
 "flat_contacts":
 { Args: { "p_flat_id": string }; Returns: {
-              "name": string,"phone": string
+              "name": string,"phone": string,"relation": string
             }[]
                            },
 "has_role":
@@ -406,6 +437,11 @@ isOneToOne: false
                            },
 "is_member":
 { Args: { "p_society": string }; Returns: boolean
+                           },
+"login_directory":
+{ Args: { "p_society_id": string }; Returns: {
+              "building": string,"flat_id": string,"flat_number": string,"society_name": string,"wing": string
+            }[]
                            },
 "mark_entry":
 { Args: { "p_visit_id": string }; Returns: {
@@ -423,6 +459,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }
@@ -448,6 +485,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }
@@ -473,6 +511,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }
@@ -486,7 +525,7 @@ isOneToOne: false
 { Args: { "p_platform": string,"p_token": string }; Returns: undefined
                            },
 "respond_to_visit":
-{ Args: { "p_response": Database["public"]['Enums']["visit_status"],"p_visit_id": string }; Returns: {
+{ Args: { "p_actor_name"?: string,"p_response": Database["public"]['Enums']["visit_status"],"p_visit_id": string }; Returns: {
               "created_at": string,
 "created_by": string,
 "entry_at": string | null,
@@ -501,6 +540,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }
@@ -515,6 +555,7 @@ isOneToOne: false
               "code": string,
 "created_at": string,
 "created_by": string,
+"created_by_name": string | null,
 "flat_id": string,
 "guest_name": string,
 "id": string,
@@ -545,6 +586,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }
@@ -570,6 +612,7 @@ isOneToOne: false
 "purpose": Database["public"]['Enums']["visit_purpose"],
 "responded_at": string | null,
 "responded_by": string | null,
+"responded_by_name": string | null,
 "society_id": string,
 "status": Database["public"]['Enums']["visit_status"]
             }

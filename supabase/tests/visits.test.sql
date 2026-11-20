@@ -57,8 +57,15 @@ select throws_ok(
   $$select create_visit('bbbbbbbb-0000-0000-0000-0000000000f1', 'X', null, 'guest', null)$$,
   'P0001', 'not_authorized', 'guard of A cannot create visit for flat of B');
 
--- Flat contacts / app users
-select is((select count(*)::int from flat_contacts('aaaaaaaa-0000-0000-0000-0000000000f1')), 2, 'guard sees contacts of current residents only (removed resident excluded)');
+-- Flat contacts / app users (contacts are the flat's family members with phones, since 0011)
+reset role;
+insert into family_members (society_id, flat_id, name, phone, relation) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'Fam One', '+919000000001', 'Son'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'Fam Two', '+919000000002', 'Wife'),
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'No Phone', null, 'Mother');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000a901","role":"authenticated"}', true);
+select is((select count(*)::int from flat_contacts('aaaaaaaa-0000-0000-0000-0000000000f1')), 2, 'guard sees the flat family contacts that have phones');
 select is(visit_has_app_users('aaaaaaaa-0000-0000-0000-0000000000f1'), true, 'flat with push token has app users');
 reset role;
 delete from push_tokens where token = 'tok-a1';
