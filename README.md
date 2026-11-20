@@ -59,6 +59,7 @@ Everything is TypeScript. This is an npm workspaces monorepo: run `npm install` 
    SUPABASE_URL=$API_URL SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY npm run seed:demo
    ```
    It prints the society id (needed for `EXPO_PUBLIC_SOCIETY_ID`) and the demo logins. Run it again after every `db reset`.
+   Demo family members have **no phone numbers** by default, so no real person's number is ever stored. To test calls or phone display, set `SEED_TEST_PHONES="9876543210,9123456789"` (your own numbers) when running the seed: they are saved as `+91...` and assigned round-robin to the members of B1-A-101 and B1-A-102 only (only for members that do not exist yet; `db reset` first to re-seed).
 6. Create the env files. Copy `apps/admin/.env.example` to `apps/admin/.env` and `apps/mobile/.env.example` to `apps/mobile/.env`, then fill in the anon key from `npx supabase status`.
    - Admin: `VITE_SUPABASE_URL=http://127.0.0.1:54321`.
    - Mobile: a physical phone cannot reach `localhost` on your PC. Use your PC's LAN IP, for example `EXPO_PUBLIC_SUPABASE_URL=http://192.168.1.20:54321` (find it with `ipconfig`). Phone and PC must be on the same Wi-Fi.
@@ -89,10 +90,10 @@ Create more staff accounts with `npm run staff:create -- --society <society-id> 
 npm test --workspaces                       # shared, admin and mobile unit tests
 npx supabase test db                        # database tests (needs the local stack running)
 npx -y deno test supabase/functions         # Edge Function tests (Deno is fetched on demand)
-npm run smoke                               # runs every app query that embeds related tables against the local stack (still phone based; being rewritten for flat login)
+npm run smoke                               # runs every app query that embeds related tables against the local stack
 ```
 
-`npm run smoke` (currently written for the old phone login and will not work until it is rewritten) signs in as local users and runs the select strings from `packages/shared/src/selects.ts` (which both apps use). It catches errors the unit tests cannot, such as PostgREST `PGRST201` ("more than one relationship was found") when a new foreign key makes an embed ambiguous. Run it after `db reset` and after any schema change.
+`npm run smoke` signs in locally as the demo flat and staff logins (run `npm run seed:demo` first; it only works against the local stack) and runs the select strings from `packages/shared/src/selects.ts` (which both apps use). It catches errors the unit tests cannot, such as PostgREST `PGRST201` ("more than one relationship was found") when a new foreign key makes an embed ambiguous. Run it after `db reset` and after any schema change.
 
 ## Going live
 
@@ -111,7 +112,7 @@ npm run smoke                               # runs every app query that embeds r
    ```
    `accounts` keeps the gateway JWT check on (`verify_jwt = true`); it also re-checks inside that the caller is an admin of the target society.
    `supabase/config.toml` turns the gateway JWT check off for `notify` (`[functions.notify] verify_jwt = false`) because the database calls it with a shared secret instead. If you deploy some other way, pass `--no-verify-jwt`.
-4. **Create the notify shared secret** so the database can call the function. Generate one long random value (for example `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) and store the **same value** in two places:
+4. **Create the notify shared secret** so the database can call the function. Do this **after** any `npx supabase db reset --linked` (see "Setting up your society"): a reset wipes Vault, so secrets created earlier are lost. Generate one long random value (for example `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) and store the **same value** in two places:
    - as the function's secret:
      ```
      npx supabase secrets set NOTIFY_SECRET=<the-random-value>
@@ -121,6 +122,7 @@ npm run smoke                               # runs every app query that embeds r
      select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/notify', 'notify_url');
      select vault.create_secret('<the-random-value>', 'notify_secret');
      ```
+   Check that both exist: `select name from vault.secrets;` must list `notify_url` and `notify_secret`.
    To rotate it later, set the new value in both places (`select vault.update_secret((select id from vault.secrets where name = 'notify_secret'), '<new-value>');`). The function reads the database with the auto-provided `SUPABASE_SERVICE_ROLE_KEY`; you do not store that key anywhere.
 5. **Auth settings** (Authentication in the dashboard): turn the **Phone** provider off, keep **Email** on, turn **Allow new users to sign up** off and **Confirm email** off (accounts are created only through the `accounts` function and the scripts, with confirmed synthetic emails). Locally this is already set in `supabase/config.toml`. Supabase's default auth rate limits are accepted for now.
 6. **Point the apps at production:** set `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile) and `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (admin) to `https://<project-ref>.supabase.co` and the production anon key, and set `EXPO_PUBLIC_ADMIN_URL` (mobile, optional) to the admin site's address so admin-only users see it in the app. Also set `EXPO_PUBLIC_SOCIETY_ID` (mobile) to the society's id. Never put the service role key in either app.
@@ -191,7 +193,7 @@ The `development` profile builds a dev client; it also needs `npx expo install e
 
 ## Setting up your society
 
-1. **Wipe the test project (test environment only).** The test project still holds the old phone-OTP users, invites, visits and passes. Reset it before loading the new model: `npx supabase db reset --linked` destroys ALL data in the linked project and re-applies every migration, so only ever run it against the test project. (Old auth users are not removed by a database reset; delete them in the dashboard under Authentication, Users.)
+1. **Wipe the test project (test environment only).** The test project still holds the old phone-OTP users, invites, visits and passes. Reset it before loading the new model: `npx supabase db reset --linked` destroys ALL data in the linked project and re-applies every migration, so only ever run it against the test project. (Old auth users are not removed by a database reset; delete them in the dashboard under Authentication, Users.) **A reset also wipes Vault**, so create the notify Vault secrets (Going live, step 4) after it, never before, and confirm with `select name from vault.secrets;`.
 2. **Load demo data** against the project, with the service role key from Project Settings, API (never commit it):
    ```
    SUPABASE_URL=https://<project-ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<service-role-key> npm run seed:demo
@@ -213,6 +215,7 @@ The `development` profile builds a dev client; it also needs `npx expo install e
 | `create_flat_account` | `flat_id`, `password` | 409 `account_exists` if the flat already has one |
 | `set_password` | `flat_id` or `user_id`, `password` | by `flat_id` you must administer the flat's society; by `user_id` you must administer every society the user belongs to |
 | `create_staff` | `society_id`, `username`, `name`, `role` (guard/admin), `password` | 409 `username_taken` |
+| `list_staff` | `society_id` | admins of that society only; returns `[{user_id, name, role, username, disabled}]` (the username is kept in the account's metadata; `create_staff` also returns it) |
 | `disable_staff` | `user_id` | removes the target's staff memberships in societies you administer; bans the login only if no membership remains anywhere (else 409 `still_member_elsewhere`); not yourself |
 | `bulk_import` | `society_id`, `rows`: `[{building, wing, flat, password?, member_name?, member_phone?, relation?}]` | upsert by building/wing/flat (missing building, wing or flat is created); blank password keeps the current one, and a new account without one gets a random 8-character password returned as `generated_password`; a flat whose rows name members has its family replaced wholesale; one result per row; a flat with any invalid row is skipped entirely; building names match existing ones case-insensitively; **at most 200 rows per call** (the admin site sends chunks of 200; larger requests get 400 `too_many_rows`); `generated_password` is also returned on a failed row if the account was created before the failure |
 
