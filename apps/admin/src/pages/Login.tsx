@@ -1,94 +1,90 @@
 import { useState } from 'react';
-import { normalizePhone } from '@society-gate/shared';
-import { supabase } from '../lib/supabase';
+import { isValidUsername, staffEmail } from '@society-gate/shared';
+import { Icon } from '../components/Icon';
+import { Button, Field, Input } from '../components/ui';
+import { SOCIETY_ID, supabase } from '../lib/supabase';
 
-export default function Login({
-  notAdmin,
-  setClaiming,
-}: {
-  notAdmin: boolean;
-  setClaiming: (v: boolean) => void;
-}) {
-  const [phoneInput, setPhoneInput] = useState('');
-  const [phone, setPhone] = useState<string | null>(null);
-  const [code, setCode] = useState('');
+function loginError(message: string): string {
+  if (/invalid login credentials/i.test(message)) return 'Wrong username or password.';
+  if (/banned/i.test(message)) return 'This account has been disabled. Ask another admin for help.';
+  return message;
+}
+
+export default function Login({ notAdmin }: { notAdmin: boolean }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function sendCode(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    let normalized: string;
-    try {
-      normalized = normalizePhone(phoneInput);
-    } catch {
-      setError('Enter a valid 10-digit mobile number');
-      return;
-    }
+    const u = username.trim().toLowerCase();
+    if (!isValidUsername(u)) return setError('Enter your username (3-30 lowercase letters, digits, dot, dash or underscore).');
+    if (!password) return setError('Enter your password.');
     setBusy(true);
-    const { error: err } = await supabase.auth.signInWithOtp({ phone: normalized });
+    const { error: err } = await supabase.auth.signInWithPassword({ email: staffEmail(u, SOCIETY_ID), password });
     setBusy(false);
-    if (err) setError(err.message);
-    else setPhone(normalized);
-  }
-
-  async function verify(e: React.FormEvent) {
-    e.preventDefault();
-    if (!phone) return;
-    setError(null);
-    setBusy(true);
-    setClaiming(true);
-    const { error: err } = await supabase.auth.verifyOtp({ phone, token: code.trim(), type: 'sms' });
-    if (err) {
-      setClaiming(false);
-      setBusy(false);
-      setError(err.message);
-      return;
-    }
-    // Turn any pending invites for this phone into memberships before App reads them.
-    const { error: claimErr } = await supabase.rpc('claim_invites');
-    setBusy(false);
-    if (claimErr) setError(claimErr.message);
-    setClaiming(false); // App now reads the user's admin memberships
+    if (err) setError(loginError(err.message));
   }
 
   return (
-    <div className="card login">
-      <h2>Society Gate admin</h2>
-      {notAdmin && <p className="error">Not an admin</p>}
-      {phone === null ? (
-        <form onSubmit={sendCode}>
-          <div className="row">
-            <input
-              type="tel"
-              placeholder="Mobile number"
-              value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
-              autoFocus
-            />
-            <button disabled={busy}>Send code</button>
+    <div className="grid min-h-full lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute -top-24 -right-24 h-80 w-80 rounded-full bg-white/5" />
+        <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-accent-500/10" />
+        <div className="relative flex items-center gap-3">
+          <div className="rounded-xl bg-white/10 p-2">
+            <Icon name="shield" className="h-6 w-6" />
           </div>
-        </form>
-      ) : (
-        <form onSubmit={verify}>
-          <p className="muted">Code sent to {phone}</p>
-          <div className="row">
-            <input
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="6-digit code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              autoFocus
-            />
-            <button disabled={busy || code.trim().length !== 6}>Verify</button>
+          <span className="text-lg font-semibold">Society Gate</span>
+        </div>
+        <div className="relative">
+          <h2 className="text-4xl leading-tight font-semibold">
+            Run your society
+            <br />
+            <span className="text-accent-500">calmly.</span>
+          </h2>
+          <p className="mt-4 max-w-md text-brand-100/80">
+            Flats and families, staff logins, notices, complaints and maintenance bills — all in one place.
+          </p>
+        </div>
+        <p className="relative text-sm text-brand-200/70">Admin console</p>
+      </div>
+
+      <div className="flex items-center justify-center p-6">
+        <form onSubmit={submit} className="w-full max-w-sm space-y-5">
+          <div>
+            <div className="mb-6 inline-flex rounded-2xl bg-brand-50 p-3 text-brand-700 lg:hidden">
+              <Icon name="shield" className="h-6 w-6" />
+            </div>
+            <h1 className="text-2xl font-semibold text-slate-900">Welcome back</h1>
+            <p className="mt-1 text-sm text-slate-500">Sign in with your staff username and password.</p>
           </div>
-          <button type="button" onClick={() => setPhone(null)}>
-            Change number
-          </button>
+          {notAdmin && (
+            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+              That account is not an admin of this society.
+            </div>
+          )}
+          <Field label="Username">
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoFocus
+              placeholder="e.g. admin"
+            />
+          </Field>
+          <Field label="Password">
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          </Field>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button type="submit" busy={busy} className="w-full py-2.5">
+            Sign in
+          </Button>
         </form>
-      )}
-      {error && <p className="error">{error}</p>}
+      </div>
     </div>
   );
 }

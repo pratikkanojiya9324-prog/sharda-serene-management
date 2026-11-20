@@ -1,198 +1,271 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { AdminSociety } from '../App';
-import { parseFlatsCsv } from '../lib/csv';
-import { supabase } from '../lib/supabase';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Icon } from '../components/Icon';
+import { useToast } from '../components/Toast';
+import { Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Pill, SearchInput, Select, Table, td, th } from '../components/ui';
+import FlatImport from '../components/FlatImport';
+import { callAccounts } from '../lib/accounts';
+import { friendlyError } from '../lib/errors';
+import { useFlats, type FlatInfo } from '../lib/flats';
+import { ADMIN_FAMILY_SELECT, ADMIN_FLAT_ACCOUNTS_SELECT } from '../lib/selects';
+import { SOCIETY_ID, supabase } from '../lib/supabase';
 
-interface Tower {
+interface Member {
   id: string;
+  flat_id: string;
   name: string;
-}
-interface Flat {
-  id: string;
-  tower_id: string;
-  number: string;
+  phone: string | null;
+  relation: string | null;
 }
 
-export default function Flats({ society }: { society: AdminSociety }) {
-  const [towers, setTowers] = useState<Tower[]>([]);
-  const [flats, setFlats] = useState<Flat[]>([]);
+export default function Flats() {
+  const toast = useToast();
+  const { flats, error: flatsError, loading, reload: reloadFlats } = useFlats();
+  const [members, setMembers] = useState<Member[]>([]);
+  const [withAccount, setWithAccount] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [newTower, setNewTower] = useState('');
-  const [flatTower, setFlatTower] = useState('');
-  const [flatNumber, setFlatNumber] = useState('');
-  const [csv, setCsv] = useState('');
-  const [summary, setSummary] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [search, setSearch] = useState('');
+  const [building, setBuilding] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [viewing, setViewing] = useState<FlatInfo | null>(null);
+  const [pwFlat, setPwFlat] = useState<FlatInfo | null>(null);
 
-  const load = useCallback(async () => {
-    const [t, f] = await Promise.all([
-      supabase.from('towers').select('id, name').eq('society_id', society.id).order('name'),
-      supabase.from('flats').select('id, tower_id, number').eq('society_id', society.id).order('number'),
+  const loadDetails = useCallback(async () => {
+    const [m, a] = await Promise.all([
+      supabase.from('family_members').select(ADMIN_FAMILY_SELECT).eq('society_id', SOCIETY_ID).order('created_at'),
+      supabase.from('flat_residents').select(ADMIN_FLAT_ACCOUNTS_SELECT).eq('flats.society_id', SOCIETY_ID),
     ]);
-    if (t.error || f.error) setError((t.error ?? f.error)!.message);
-    setTowers(t.data ?? []);
-    setFlats(f.data ?? []);
-  }, [society.id]);
+    const err = m.error ?? a.error;
+    if (err) return setError(err.message);
+    setError(null);
+    setMembers(m.data ?? []);
+    setWithAccount(new Set((a.data ?? []).map((x) => x.flat_id)));
+  }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadDetails();
+  }, [loadDetails]);
 
-  async function addTower(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const name = newTower.trim();
-    if (!name) return;
-    const { error: err } = await supabase.from('towers').insert({ society_id: society.id, name });
-    if (err) setError(err.code === '23505' ? 'That tower already exists' : err.message);
-    else setNewTower('');
-    await load();
-  }
+  const reload = () => {
+    void reloadFlats();
+    void loadDetails();
+  };
 
-  async function saveRename() {
-    if (!renaming) return;
-    setError(null);
-    const name = renaming.name.trim();
-    if (!name) return;
-    const { error: err } = await supabase.from('towers').update({ name }).eq('id', renaming.id);
-    if (err) setError(err.code === '23505' ? 'That tower already exists' : err.message);
-    else setRenaming(null);
-    await load();
-  }
+  const membersOf = useMemo(() => {
+    const map = new Map<string, Member[]>();
+    for (const m of members) map.set(m.flat_id, [...(map.get(m.flat_id) ?? []), m]);
+    return map;
+  }, [members]);
 
-  async function addFlat(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const number = flatNumber.trim();
-    if (!flatTower || !number) return;
-    const { error: err } = await supabase
-      .from('flats')
-      .insert({ society_id: society.id, tower_id: flatTower, number });
-    if (err) setError(err.code === '23505' ? 'That flat already exists' : err.message);
-    else setFlatNumber('');
-    await load();
-  }
-
-  async function bulkAdd() {
-    setError(null);
-    setSummary(null);
-    let rows;
-    try {
-      rows = parseFlatsCsv(csv);
-    } catch (e) {
-      const m = /^bad_row:(\d+)$/.exec((e as Error).message);
-      setError(m ? `Line ${m[1]} should be: tower,flat` : (e as Error).message);
-      return;
-    }
-    if (rows.length === 0) {
-      setError('Paste at least one tower,flat line');
-      return;
-    }
-
-    // 1. towers: create the missing ones (matched by name within this society)
-    const { data: existingTowers, error: tErr } = await supabase
-      .from('towers')
-      .select('id, name')
-      .eq('society_id', society.id);
-    if (tErr) return setError(tErr.message);
-    const towerId = new Map((existingTowers ?? []).map((t) => [t.name, t.id]));
-    const missing = [...new Set(rows.map((r) => r.tower))].filter((n) => !towerId.has(n));
-    if (missing.length > 0) {
-      const { data: created, error: cErr } = await supabase
-        .from('towers')
-        .insert(missing.map((name) => ({ society_id: society.id, name })))
-        .select('id, name');
-      if (cErr) return setError(cErr.message);
-      created.forEach((t) => towerId.set(t.name, t.id));
-    }
-
-    // 2. flats: skip ones that already exist (or repeat within the paste)
-    const { data: existingFlats, error: fErr } = await supabase
-      .from('flats')
-      .select('tower_id, number')
-      .eq('society_id', society.id);
-    if (fErr) return setError(fErr.message);
-    const seen = new Set((existingFlats ?? []).map((f) => `${f.tower_id}|${f.number}`));
-    const toInsert: { society_id: string; tower_id: string; number: string }[] = [];
-    let skipped = 0;
-    for (const r of rows) {
-      const tid = towerId.get(r.tower)!;
-      const key = `${tid}|${r.flat}`;
-      if (seen.has(key)) {
-        skipped++;
-        continue;
-      }
-      seen.add(key);
-      toInsert.push({ society_id: society.id, tower_id: tid, number: r.flat });
-    }
-    if (toInsert.length > 0) {
-      const { error: iErr } = await supabase.from('flats').insert(toInsert);
-      if (iErr) return setError(iErr.message);
-    }
-    setSummary(`Added ${toInsert.length} flats, skipped ${skipped} existing`);
-    setCsv('');
-    await load();
-  }
+  const buildings = [...new Set(flats.map((f) => f.building))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const q = search.trim().toLowerCase();
+  const shown = flats.filter(
+    (f) =>
+      (!building || f.building === building) &&
+      (!q || f.label.toLowerCase().includes(q) || (membersOf.get(f.id) ?? []).some((m) => m.name.toLowerCase().includes(q))),
+  );
 
   return (
     <>
-      <h2>Towers and flats</h2>
-      {error && <p className="error">{error}</p>}
+      <PageHeader
+        title="Flats & members"
+        subtitle={`${flats.length} flats · ${withAccount.size} with a login · ${members.length} family members`}
+        actions={
+          <Button icon="upload" onClick={() => setImportOpen(true)}>
+            Import CSV
+          </Button>
+        }
+      />
+      {(flatsError || error) && <ErrorBanner message={(flatsError ?? error)!} onRetry={reload} />}
 
-      <div className="card">
-        <h3>Add tower</h3>
-        <form className="row" onSubmit={addTower}>
-          <input placeholder="Tower name" value={newTower} onChange={(e) => setNewTower(e.target.value)} />
-          <button>Add tower</button>
-        </form>
-        <h3>Add flat</h3>
-        <form className="row" onSubmit={addFlat}>
-          <select value={flatTower} onChange={(e) => setFlatTower(e.target.value)} aria-label="Tower">
-            <option value="">Tower…</option>
-            {towers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
+      <Card>
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-4">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search flat or member" />
+          <Select value={building} onChange={(e) => setBuilding(e.target.value)} className="w-44" aria-label="Building">
+            <option value="">All buildings</option>
+            {buildings.map((b) => (
+              <option key={b}>{b}</option>
             ))}
-          </select>
-          <input placeholder="Flat number" value={flatNumber} onChange={(e) => setFlatNumber(e.target.value)} />
-          <button>Add flat</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h3>Bulk add flats</h3>
-        <p className="muted">One flat per line as tower,flat (for example A,101). A header line is ignored.</p>
-        <textarea rows={6} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={'tower,flat\nA,101\nA,102'} />
-        <div className="row">
-          <button onClick={bulkAdd}>Add flats</button>
-          {summary && <span className="ok">{summary}</span>}
+          </Select>
+          <span className="ml-auto text-sm text-slate-500">{shown.length} shown</span>
         </div>
-      </div>
+        {!loading && shown.length === 0 ? (
+          <EmptyState icon="building" title={flats.length === 0 ? 'No flats yet' : 'No matching flats'}>
+            {flats.length === 0 ? 'Import a CSV to create flats, logins and family members.' : 'Try another search.'}
+          </EmptyState>
+        ) : (
+          <Table
+            head={
+              <tr>
+                <th className={th}>Flat</th>
+                <th className={th}>Building</th>
+                <th className={th}>Wing</th>
+                <th className={th}>Login</th>
+                <th className={th}>Family</th>
+                <th className={`${th} text-right`}>Actions</th>
+              </tr>
+            }
+          >
+            {shown.map((f) => {
+              const fam = membersOf.get(f.id) ?? [];
+              const hasAccount = withAccount.has(f.id);
+              return (
+                <tr key={f.id} className="hover:bg-slate-50/60">
+                  <td className={`${td} font-semibold text-slate-900`}>{f.label}</td>
+                  <td className={td}>{f.building}</td>
+                  <td className={td}>{f.wing}</td>
+                  <td className={td}>
+                    {hasAccount ? (
+                      <Pill tone="green" icon="check">
+                        Active
+                      </Pill>
+                    ) : (
+                      <Pill tone="slate" icon="ban">
+                        No login
+                      </Pill>
+                    )}
+                  </td>
+                  <td className={td}>
+                    {fam.length === 0 ? (
+                      <span className="text-slate-400">—</span>
+                    ) : (
+                      <button onClick={() => setViewing(f)} className="text-left text-slate-700 hover:text-brand-700">
+                        {fam
+                          .slice(0, 2)
+                          .map((m) => m.name)
+                          .join(', ')}
+                        {fam.length > 2 && <span className="text-slate-400"> +{fam.length - 2}</span>}
+                      </button>
+                    )}
+                  </td>
+                  <td className={`${td} text-right whitespace-nowrap`}>
+                    <Button size="sm" variant="ghost" icon="users" onClick={() => setViewing(f)}>
+                      Family
+                    </Button>
+                    <Button size="sm" variant="secondary" icon="key" onClick={() => setPwFlat(f)}>
+                      {hasAccount ? 'Reset password' : 'Create login'}
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </Table>
+        )}
+      </Card>
 
-      {towers.length === 0 && <p className="muted">No towers yet.</p>}
-      {towers.map((t) => (
-        <div className="card" key={t.id}>
-          {renaming?.id === t.id ? (
-            <div className="row">
-              <input value={renaming.name} onChange={(e) => setRenaming({ id: t.id, name: e.target.value })} />
-              <button onClick={saveRename}>Save</button>
-              <button onClick={() => setRenaming(null)}>Cancel</button>
-            </div>
-          ) : (
-            <div className="row">
-              <strong>Tower {t.name}</strong>
-              <button onClick={() => setRenaming({ id: t.id, name: t.name })}>Rename</button>
-            </div>
-          )}
-          <p>
-            {flats
-              .filter((f) => f.tower_id === t.id)
-              .map((f) => f.number)
-              .join(', ') || <span className="muted">No flats</span>}
-          </p>
-        </div>
-      ))}
+      <FlatImport
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => {
+          reload();
+        }}
+      />
+
+      <Modal open={!!viewing} title={viewing ? `Family of ${viewing.label}` : ''} onClose={() => setViewing(null)}>
+        {viewing && (membersOf.get(viewing.id) ?? []).length === 0 ? (
+          <EmptyState icon="users" title="No family members">Add them with a CSV import (one row per member).</EmptyState>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {viewing &&
+              (membersOf.get(viewing.id) ?? []).map((m) => (
+                <li key={m.id} className="flex items-center gap-3 py-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700">
+                    {m.name.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-800">{m.name}</p>
+                    <p className="text-xs text-slate-500">{[m.relation, m.phone].filter(Boolean).join(' · ') || '—'}</p>
+                  </div>
+                </li>
+              ))}
+          </ul>
+        )}
+        <p className="mt-4 text-xs text-slate-500">
+          To change a family, import a CSV with that flat's rows: its family list is replaced.
+        </p>
+      </Modal>
+
+      <PasswordModal
+        flat={pwFlat}
+        hasAccount={pwFlat ? withAccount.has(pwFlat.id) : false}
+        onClose={() => setPwFlat(null)}
+        onDone={(created) => {
+          toast('success', created ? `Login created for ${pwFlat?.label}` : `Password reset for ${pwFlat?.label}`);
+          setPwFlat(null);
+          if (created) void loadDetails();
+        }}
+      />
     </>
+  );
+}
+
+function PasswordModal({
+  flat,
+  hasAccount,
+  onClose,
+  onDone,
+}: {
+  flat: FlatInfo | null;
+  hasAccount: boolean;
+  onClose: () => void;
+  onDone: (created: boolean) => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setPassword('');
+    setConfirm('');
+    setError(null);
+  }, [flat]);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!flat) return;
+    if (password.length < 6) return setError('Password must be at least 6 characters.');
+    if (password !== confirm) return setError('The passwords do not match.');
+    setBusy(true);
+    try {
+      if (hasAccount) await callAccounts('set_password', { flat_id: flat.id, password });
+      else await callAccounts('create_flat_account', { flat_id: flat.id, password });
+      onDone(!hasAccount);
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={!!flat}
+      title={flat ? `${hasAccount ? 'Reset password' : 'Create login'} · ${flat.label}` : ''}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button form="flat-password" type="submit" busy={busy}>
+            {hasAccount ? 'Reset password' : 'Create login'}
+          </Button>
+        </>
+      }
+    >
+      <form id="flat-password" onSubmit={save} className="space-y-4">
+        <p className="flex items-start gap-2 rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-800">
+          <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
+          The flat signs in on the app by choosing {flat?.building} → Wing {flat?.wing} → {flat?.number} and this password.
+        </p>
+        <Field label="New password" hint="At least 6 characters.">
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" autoFocus />
+        </Field>
+        <Field label="Confirm password">
+          <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+        </Field>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </form>
+    </Modal>
   );
 }

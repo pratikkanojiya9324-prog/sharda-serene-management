@@ -1,28 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { ADMIN_SOCIETIES_SELECT } from '@society-gate/shared';
-import { supabase } from './lib/supabase';
-import Login from './pages/Login';
+import Layout from './components/Layout';
+import { Button, Spinner } from './components/ui';
+import { SOCIETY_ID, supabase } from './lib/supabase';
+import Bills from './pages/Bills';
+import Complaints from './pages/Complaints';
+import Dashboard from './pages/Dashboard';
 import Flats from './pages/Flats';
-import People from './pages/People';
+import Login from './pages/Login';
+import Notices from './pages/Notices';
+import Staff from './pages/Staff';
 import VisitorLog from './pages/VisitorLog';
 
-export interface AdminSociety {
-  id: string;
-  name: string;
+interface AdminContext {
+  societyName: string;
+  userName: string;
+}
+
+function FullPage({ children }: { children: React.ReactNode }) {
+  return <div className="flex h-full items-center justify-center bg-slate-50 p-6">{children}</div>;
 }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
-  const [societies, setSocieties] = useState<AdminSociety[] | null>(null);
-  const [societyId, setSocietyId] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<AdminContext | null>(null);
   const [notAdmin, setNotAdmin] = useState(false);
   // A failed load (network, server) is not "not an admin": show it with a retry.
   const [loadError, setLoadError] = useState<string | null>(null);
-  // true while Login verifies the OTP and claims invites, so memberships are read only afterwards
-  const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -35,87 +42,92 @@ export default function App() {
 
   const userId = session?.user.id ?? null;
 
-  // Load the admin societies of the signed-in user (always filtered by profile_id:
-  // RLS lets admins read every membership in their society).
-  const loadSocieties = useCallback(async (uid: string) => {
-    const { data, error } = await supabase
-      .from('memberships')
-      .select(ADMIN_SOCIETIES_SELECT)
-      .eq('profile_id', uid)
-      .eq('role', 'admin');
-    if (error) {
-      setLoadError(error.message);
-      return;
-    }
+  // The signed-in user must be an admin of the configured society.
+  const loadContext = useCallback(async (uid: string) => {
+    const [m, p] = await Promise.all([
+      supabase
+        .from('memberships')
+        .select(ADMIN_SOCIETIES_SELECT)
+        .eq('profile_id', uid)
+        .eq('society_id', SOCIETY_ID)
+        .eq('role', 'admin')
+        .maybeSingle(),
+      supabase.from('profiles').select('name').eq('id', uid).maybeSingle(),
+    ]);
+    const err = m.error ?? p.error;
+    if (err) return setLoadError(err.message);
     setLoadError(null);
-    const list = (data ?? []).map((m) => ({ id: m.society_id, name: m.societies?.name ?? 'Society' }));
-    if (list.length === 0) {
+    if (!m.data) {
       setNotAdmin(true);
       await supabase.auth.signOut();
       return;
     }
     setNotAdmin(false);
-    setSocieties(list);
-    setSocietyId((cur) => (cur && list.some((s) => s.id === cur) ? cur : list[0].id));
+    setCtx({ societyName: m.data.societies?.name ?? 'Society', userName: p.data?.name ?? 'Admin' });
   }, []);
 
   useEffect(() => {
     if (!userId) {
-      setSocieties(null);
+      setCtx(null);
       setLoadError(null);
       return;
     }
-    if (claiming) return;
-    void loadSocieties(userId);
-  }, [userId, claiming, loadSocieties]);
+    void loadContext(userId);
+  }, [userId, loadContext]);
 
-  if (!ready) return <p>Loading…</p>;
-  if (!session) return <Login notAdmin={notAdmin} setClaiming={setClaiming} />;
-  if (loadError && userId) {
+  if (!SOCIETY_ID) {
     return (
-      <main>
-        <p className="error">Could not load your societies: {loadError}</p>
-        <div className="row">
-          <button onClick={() => void loadSocieties(userId)}>Try again</button>
-          <button onClick={() => supabase.auth.signOut()}>Sign out</button>
-        </div>
-      </main>
+      <FullPage>
+        <p className="text-sm text-slate-600">
+          This admin site is not configured: set <code className="rounded bg-slate-100 px-1">VITE_SOCIETY_ID</code> in the
+          environment and rebuild.
+        </p>
+      </FullPage>
     );
   }
-  if (!societies) return <p>Loading…</p>;
-
-  const society = societies.find((s) => s.id === societyId) ?? societies[0];
+  if (!ready) {
+    return (
+      <FullPage>
+        <Spinner className="h-6 w-6 text-brand-700" />
+      </FullPage>
+    );
+  }
+  if (!session) return <Login notAdmin={notAdmin} />;
+  if (loadError && userId) {
+    return (
+      <FullPage>
+        <div className="space-y-4 text-center">
+          <p className="text-sm text-red-700">Could not load your account: {loadError}</p>
+          <div className="flex justify-center gap-2">
+            <Button onClick={() => void loadContext(userId)}>Try again</Button>
+            <Button variant="secondary" onClick={() => supabase.auth.signOut()}>
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </FullPage>
+    );
+  }
+  if (!ctx) {
+    return (
+      <FullPage>
+        <Spinner className="h-6 w-6 text-brand-700" />
+      </FullPage>
+    );
+  }
 
   return (
-    <>
-      <header className="bar">
-        <strong>Society Gate</strong>
-        {societies.length > 1 ? (
-          <select value={society.id} onChange={(e) => setSocietyId(e.target.value)} aria-label="Society">
-            {societies.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span>{society.name}</span>
-        )}
-        <NavLink to="/flats">Flats</NavLink>
-        <NavLink to="/people">People</NavLink>
-        <NavLink to="/visits">Visitor log</NavLink>
-        <span className="spacer" />
-        <button onClick={() => supabase.auth.signOut()}>Sign out</button>
-      </header>
-      <main>
-        {/* key remounts pages when the admin switches society */}
-        <Routes key={society.id}>
-          <Route path="/flats" element={<Flats society={society} />} />
-          <Route path="/people" element={<People society={society} userId={session.user.id} />} />
-          <Route path="/visits" element={<VisitorLog society={society} />} />
-          <Route path="*" element={<Navigate to="/flats" replace />} />
-        </Routes>
-      </main>
-    </>
+    <Layout societyName={ctx.societyName} userName={ctx.userName} onSignOut={() => void supabase.auth.signOut()}>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/flats" element={<Flats />} />
+        <Route path="/staff" element={<Staff userId={session.user.id} />} />
+        <Route path="/notices" element={<Notices />} />
+        <Route path="/complaints" element={<Complaints userId={session.user.id} userName={ctx.userName} />} />
+        <Route path="/bills" element={<Bills />} />
+        <Route path="/visits" element={<VisitorLog />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Layout>
   );
 }

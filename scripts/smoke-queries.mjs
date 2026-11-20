@@ -1,20 +1,21 @@
-// Smoke test: run every embed select string the apps use against the LOCAL
-// Supabase stack, signed in as admin, guard and resident, and fail on any error
-// (e.g. PGRST201 "more than one relationship was found").
+// Smoke test: run every select string the apps use against the LOCAL Supabase
+// stack, signed in with the demo accounts, and fail on any error (e.g. PGRST201
+// "more than one relationship was found" when an embed lacks its FK hint).
 //
-// Needs: `npx supabase start`, `npx supabase db reset` (dev seed). Uses the local
-// test OTP phones from supabase/config.toml (OTP 123456):
-//   +919999999999 admin (seed invite), +919888888888 guard, +919777777777 resident.
-// Missing guard/resident invites are created in "Demo Society" with the service role.
+// Needs: `npx supabase start` and the demo data (`npm run seed:demo` against the
+// local stack). Logs in with password, exactly like the apps:
+//   flat  Building 1 / A / 101  Sharda@1A101  (flatEmail(flat_id))
+//   staff admin / Admin@123, guard1 / Guard@123  (staffEmail(username, society_id))
+// Every exported constant of packages/shared/src/selects.ts and
+// apps/admin/src/lib/selects.ts must be exercised here, or the run fails.
 import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 
+import { flatEmail, staffEmail } from '../packages/shared/src/flatLabel.ts';
 import * as S from '../packages/shared/src/selects.ts';
+import * as A from '../apps/admin/src/lib/selects.ts';
 
-const OTP = '123456';
-const ADMIN_PHONE = '+919999999999';
-const GUARD_PHONE = '+919888888888';
-const RESIDENT_PHONE = '+919777777777';
+const SOCIETY_NAME = 'Sharda Serene';
 
 function localEnv() {
   const out = execSync('npx supabase status -o env', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
@@ -35,7 +36,13 @@ const service = createClient(env.API_URL, env.SERVICE_ROLE_KEY, opts);
 
 let failures = 0;
 let passes = 0;
-function check(label, { error, data }, expectRows = false) {
+const used = new Set();
+/** Marks the select constant(s) as exercised and returns the string. */
+function sel(name, value) {
+  used.add(name);
+  return value;
+}
+function check(label, { error, data, count }, expectRows = false) {
   if (error) {
     failures++;
     console.error(`FAIL ${label}: ${error.code ?? ''} ${error.message}`);
@@ -44,81 +51,145 @@ function check(label, { error, data }, expectRows = false) {
     console.error(`FAIL ${label}: expected rows, got none`);
   } else {
     passes++;
-    console.log(`ok   ${label} (${Array.isArray(data) ? data.length : 1} row(s))`);
+    const n = count ?? (Array.isArray(data) ? data.length : 1);
+    console.log(`ok   ${label} (${n} row(s))`);
   }
+  return data;
 }
 function must({ data, error }, what) {
   if (error) throw new Error(`${what}: ${error.message}`);
   return data;
 }
 
-async function ensureInvite(societyId, phone, name, role, flatId = null) {
-  const existing = must(
-    await service.from('invites').select('id').eq('society_id', societyId).eq('phone', phone).eq('role', role),
-    `read ${role} invite`,
-  );
-  if (existing.length) return;
-  must(
-    await service.from('invites').insert({ society_id: societyId, phone, name, role, flat_id: flatId }),
-    `create ${role} invite`,
-  );
-}
-
-async function signIn(phone) {
+async function signIn(email, password, who) {
   const client = createClient(env.API_URL, env.ANON_KEY, opts);
-  // Local auth allows one OTP request per phone every few seconds (auth.sms.max_frequency).
-  for (let attempt = 0; ; attempt++) {
-    const { error } = await client.auth.signInWithOtp({ phone });
-    if (!error) break;
-    const wait = /after (\d+) seconds?/.exec(error.message);
-    if (!wait || attempt >= 3) throw new Error(`send OTP to ${phone}: ${error.message}`);
-    await new Promise((r) => setTimeout(r, (Number(wait[1]) + 1) * 1000));
-  }
-  const { session } = must(await client.auth.verifyOtp({ phone, token: OTP, type: 'sms' }), `verify OTP ${phone}`);
-  must(await client.rpc('claim_invites'), `claim invites ${phone}`);
+  const { session } = must(await client.auth.signInWithPassword({ email, password }), `sign in ${who}`);
   return { client, userId: session.user.id };
 }
 
-// --- setup (service role) -----------------------------------------------------
+// --- setup --------------------------------------------------------------------
 const society = must(
-  await service.from('societies').select('id').eq('name', 'Demo Society').limit(1).maybeSingle(),
-  'find Demo Society',
+  await service.from('societies').select('id').eq('name', SOCIETY_NAME).limit(1).maybeSingle(),
+  `find ${SOCIETY_NAME}`,
 );
-if (!society) throw new Error('Demo Society not found - run `npx supabase db reset` (dev seed) first.');
-const flat = must(
-  await service.from('flats').select('id').eq('society_id', society.id).order('number').limit(1).single(),
-  'find a flat',
-);
-await ensureInvite(society.id, GUARD_PHONE, 'Smoke Guard', 'guard');
-await ensureInvite(society.id, RESIDENT_PHONE, 'Smoke Resident', 'resident', flat.id);
+if (!society) throw new Error(`${SOCIETY_NAME} not found - run \`npm run seed:demo\` against the local stack first.`);
+const societyId = society.id;
 
-// --- admin (web admin panel) -------------------------------------------------
-const admin = await signIn(ADMIN_PHONE);
+// The flat login, like the app: anon login directory -> flat id -> synthetic email.
+const anon = createClient(env.API_URL, env.ANON_KEY, opts);
+const directory = must(await anon.rpc('login_directory', { p_society_id: societyId }), 'login_directory');
+const flat101 = directory.find((d) => d.building === 'Building 1' && d.wing === 'A' && d.flat_number === '101');
+if (!flat101) throw new Error('Building 1 / A / 101 not in the login directory - run `npm run seed:demo`.');
+const flatId = flat101.flat_id;
+
+const admin = await signIn(staffEmail('admin', societyId), 'Admin@123', 'admin');
+const guard = await signIn(staffEmail('guard1', societyId), 'Guard@123', 'guard1');
+const resident = await signIn(flatEmail(flatId), 'Sharda@1A101', 'flat B1-A-101');
+
+// --- admin website --------------------------------------------------------------
+const ac = admin.client;
 check(
   'admin  App        memberships ADMIN_SOCIETIES_SELECT',
-  await admin.client.from('memberships').select(S.ADMIN_SOCIETIES_SELECT).eq('profile_id', admin.userId).eq('role', 'admin'),
+  await ac
+    .from('memberships')
+    .select(sel('ADMIN_SOCIETIES_SELECT', S.ADMIN_SOCIETIES_SELECT))
+    .eq('profile_id', admin.userId)
+    .eq('society_id', societyId)
+    .eq('role', 'admin'),
+  true,
+);
+check('admin  App        profiles name', await ac.from('profiles').select('name').eq('id', admin.userId), true);
+const labels = check(
+  'admin  Flats      flats ADMIN_FLAT_LABELS_SELECT',
+  await ac.from('flats').select(sel('ADMIN_FLAT_LABELS_SELECT', A.ADMIN_FLAT_LABELS_SELECT)).eq('society_id', societyId),
+  true,
+);
+if (labels?.length && !labels[0].towers?.building) {
+  failures++;
+  console.error('FAIL admin  Flats: embedded towers.building missing');
+}
+check(
+  'admin  Flats      flat_residents ADMIN_FLAT_ACCOUNTS_SELECT',
+  await ac.from('flat_residents').select(sel('ADMIN_FLAT_ACCOUNTS_SELECT', A.ADMIN_FLAT_ACCOUNTS_SELECT)).eq('flats.society_id', societyId),
   true,
 );
 check(
-  'admin  People     flats ADMIN_FLATS_SELECT',
-  await admin.client.from('flats').select(S.ADMIN_FLATS_SELECT).eq('society_id', society.id),
+  'admin  Flats      family_members ADMIN_FAMILY_SELECT',
+  await ac.from('family_members').select(sel('ADMIN_FAMILY_SELECT', A.ADMIN_FAMILY_SELECT)).eq('society_id', societyId).order('created_at'),
+  true,
+);
+const staff = check(
+  'admin  Staff      memberships ADMIN_STAFF_SELECT',
+  await ac.from('memberships').select(sel('ADMIN_STAFF_SELECT', A.ADMIN_STAFF_SELECT)).eq('society_id', societyId).in('role', ['guard', 'admin']),
+  true,
+);
+if (staff?.length && !staff[0].profiles?.name) {
+  failures++;
+  console.error('FAIL admin  Staff: embedded profiles.name missing');
+}
+check(
+  'admin  Notices    notices ADMIN_NOTICES_SELECT',
+  await ac
+    .from('notices')
+    .select(sel('ADMIN_NOTICES_SELECT', A.ADMIN_NOTICES_SELECT))
+    .eq('society_id', societyId)
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false }),
+  true,
+);
+const complaints = check(
+  'admin  Complaints complaints ADMIN_COMPLAINTS_SELECT',
+  await ac.from('complaints').select(sel('ADMIN_COMPLAINTS_SELECT', A.ADMIN_COMPLAINTS_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }),
+  true,
+);
+if (complaints?.length) {
+  check(
+    'admin  Complaints complaint_comments ADMIN_COMPLAINT_COMMENTS_SELECT',
+    await ac
+      .from('complaint_comments')
+      .select(sel('ADMIN_COMPLAINT_COMMENTS_SELECT', A.ADMIN_COMPLAINT_COMMENTS_SELECT))
+      .eq('complaint_id', complaints[0].id)
+      .order('created_at'),
+  );
+}
+check(
+  'admin  Bills      bills ADMIN_BILLS_SELECT',
+  await ac.from('bills').select(sel('ADMIN_BILLS_SELECT', A.ADMIN_BILLS_SELECT)).eq('society_id', societyId),
   true,
 );
 check(
-  'admin  People     memberships ADMIN_MEMBERS_SELECT',
-  await admin.client.from('memberships').select(S.ADMIN_MEMBERS_SELECT).eq('society_id', society.id),
-  true,
+  'admin  Dashboard  complaints count',
+  await ac.from('complaints').select('id', { count: 'exact', head: true }).eq('society_id', societyId).neq('status', 'resolved'),
 );
-check(
-  'admin  People     flat_residents ADMIN_FLAT_LINKS_SELECT',
-  await admin.client.from('flat_residents').select(S.ADMIN_FLAT_LINKS_SELECT).eq('flats.society_id', society.id),
-);
+check('admin  Dashboard  bills amount,status', await ac.from('bills').select('amount, status').eq('society_id', societyId));
+// Older shared constants: run while they are still exported (the coverage check
+// below fails for any exported constant that is not run).
+if ('ADMIN_FLATS_SELECT' in S) {
+  check(
+    'admin  (shared)   flats ADMIN_FLATS_SELECT',
+    await ac.from('flats').select(sel('ADMIN_FLATS_SELECT', S.ADMIN_FLATS_SELECT)).eq('society_id', societyId),
+    true,
+  );
+}
+if ('ADMIN_MEMBERS_SELECT' in S) {
+  check(
+    'admin  (shared)   memberships ADMIN_MEMBERS_SELECT',
+    await ac.from('memberships').select(sel('ADMIN_MEMBERS_SELECT', S.ADMIN_MEMBERS_SELECT)).eq('society_id', societyId),
+    true,
+  );
+}
+if ('ADMIN_FLAT_LINKS_SELECT' in S) {
+  check(
+    'admin  (shared)   flat_residents ADMIN_FLAT_LINKS_SELECT',
+    await ac.from('flat_residents').select(sel('ADMIN_FLAT_LINKS_SELECT', S.ADMIN_FLAT_LINKS_SELECT)).eq('flats.society_id', societyId),
+    true,
+  );
+}
 
-// --- guard (mobile) -----------------------------------------------------------
-const guard = await signIn(GUARD_PHONE);
+// --- guard (mobile) -------------------------------------------------------------
 must(
   await guard.client.rpc('create_visit', {
-    p_flat_id: flat.id,
+    p_flat_id: flatId,
     p_name: 'Smoke Visitor',
     p_phone: null,
     p_purpose: 'guest',
@@ -128,37 +199,54 @@ must(
 );
 const startOfDay = new Date();
 startOfDay.setHours(0, 0, 0, 0);
-const today = await guard.client
-  .from('visits')
-  .select(S.GUARD_TODAY_VISITS_SELECT)
-  .eq('society_id', society.id)
-  .gte('created_at', startOfDay.toISOString())
-  .order('created_at', { ascending: false });
-check('guard  Today      visits GUARD_TODAY_VISITS_SELECT', today, true);
-if (!today.error && today.data?.[0] && !today.data[0].flats?.towers?.name) {
+const today = check(
+  'guard  Today      visits GUARD_TODAY_VISITS_SELECT',
+  await guard.client
+    .from('visits')
+    .select(sel('GUARD_TODAY_VISITS_SELECT', S.GUARD_TODAY_VISITS_SELECT))
+    .eq('society_id', societyId)
+    .gte('created_at', startOfDay.toISOString())
+    .order('created_at', { ascending: false }),
+  true,
+);
+if (today?.[0] && !today[0].flats?.towers?.name) {
   failures++;
   console.error('FAIL guard  Today: embedded flats.towers.name missing');
 }
 
-// --- resident (mobile) --------------------------------------------------------
-const resident = await signIn(RESIDENT_PHONE);
+// --- flat account (mobile) ------------------------------------------------------
 check(
-  'res    FlatCtx    flat_residents RESIDENT_FLATS_SELECT',
-  await resident.client.from('flat_residents').select(S.RESIDENT_FLATS_SELECT).eq('profile_id', resident.userId).order('created_at'),
+  'flat   FlatCtx    flat_residents RESIDENT_FLATS_SELECT',
+  await resident.client
+    .from('flat_residents')
+    .select(sel('RESIDENT_FLATS_SELECT', S.RESIDENT_FLATS_SELECT))
+    .eq('profile_id', resident.userId)
+    .order('created_at'),
   true,
 );
+if ('HOUSEHOLD_MEMBERS_SELECT' in S) {
+  check(
+    'flat   Household  flat_residents HOUSEHOLD_MEMBERS_SELECT',
+    await resident.client.from('flat_residents').select(sel('HOUSEHOLD_MEMBERS_SELECT', S.HOUSEHOLD_MEMBERS_SELECT)).eq('flat_id', flatId).order('created_at'),
+    true,
+  );
+}
+
+// --- admin visitor log (after the guard created a visit) ------------------------
 check(
-  'res    Household  flat_residents HOUSEHOLD_MEMBERS_SELECT',
-  await resident.client.from('flat_residents').select(S.HOUSEHOLD_MEMBERS_SELECT).eq('flat_id', flat.id).order('created_at'),
+  'admin  VisitorLog visits ADMIN_VISIT_LOG_SELECT',
+  await ac.from('visits').select(sel('ADMIN_VISIT_LOG_SELECT', S.ADMIN_VISIT_LOG_SELECT)).eq('society_id', societyId).limit(200),
   true,
 );
 
-// --- admin visitor log (after the guard created a visit) ----------------------
-check(
-  'admin  VisitorLog visits ADMIN_VISIT_LOG_SELECT',
-  await admin.client.from('visits').select(S.ADMIN_VISIT_LOG_SELECT).eq('society_id', society.id).limit(200),
-  true,
-);
+// --- coverage: every exported select constant must have been run ----------------
+for (const name of [...Object.keys(S), ...Object.keys(A)]) {
+  if (!name.endsWith('_SELECT')) continue;
+  if (!used.has(name)) {
+    failures++;
+    console.error(`FAIL coverage: ${name} is exported but not exercised by scripts/smoke-queries.mjs`);
+  }
+}
 
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exitCode = failures ? 1 : 0;

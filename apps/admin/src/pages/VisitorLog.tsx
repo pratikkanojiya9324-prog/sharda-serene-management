@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ADMIN_FLATS_SELECT, ADMIN_VISIT_LOG_SELECT } from '@society-gate/shared';
-import type { AdminSociety } from '../App';
-import { supabase } from '../lib/supabase';
+import { ADMIN_VISIT_LOG_SELECT } from '@society-gate/shared';
+import { Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pill, Select, Table, td, th } from '../components/ui';
+import { useFlats } from '../lib/flats';
+import { titleCase } from '../lib/format';
+import { visitStyle } from '../lib/status';
+import { SOCIETY_ID, supabase } from '../lib/supabase';
 
-interface FlatOption {
-  id: string;
-  label: string;
-}
 interface VisitRow {
   id: string;
   created_at: string;
@@ -22,39 +21,18 @@ interface VisitRow {
 
 const PAGE = 200;
 
-const time = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—');
 
-export default function VisitorLog({ society }: { society: AdminSociety }) {
-  const [flats, setFlats] = useState<FlatOption[]>([]);
+export default function VisitorLog() {
+  const { flats, byId } = useFlats();
   const [date, setDate] = useState('');
   const [flatId, setFlatId] = useState('');
-  const [rows, setRows] = useState<VisitRow[]>([]);
+  const [rows, setRows] = useState<VisitRow[] | null>(null);
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    supabase
-      .from('flats')
-      .select(ADMIN_FLATS_SELECT)
-      .eq('society_id', society.id)
-      .then(({ data }) =>
-        setFlats(
-          (data ?? [])
-            .map((x) => ({ id: x.id, label: `${x.towers?.name ?? '?'}-${x.number}` }))
-            .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),
-        ),
-      );
-  }, [society.id]);
-
   const load = useCallback(async () => {
-    setError(null);
-    let q = supabase
-      .from('visits')
-      .select(ADMIN_VISIT_LOG_SELECT)
-      .eq('society_id', society.id)
-      .order('created_at', { ascending: false })
-      .limit(PAGE);
+    let q = supabase.from('visits').select(ADMIN_VISIT_LOG_SELECT).eq('society_id', SOCIETY_ID).order('created_at', { ascending: false }).limit(PAGE);
     if (flatId) q = q.eq('flat_id', flatId);
     if (date) {
       // the admin's local calendar day
@@ -65,6 +43,7 @@ export default function VisitorLog({ society }: { society: AdminSociety }) {
     }
     const { data, error: err } = await q;
     if (err) return setError(err.message);
+    setError(null);
     const list = data ?? [];
     setRows(list);
 
@@ -76,70 +55,81 @@ export default function VisitorLog({ society }: { society: AdminSociety }) {
       if (s.path && s.signedUrl) map[s.path] = s.signedUrl;
     });
     setPhotos(map);
-  }, [society.id, flatId, date]);
+  }, [flatId, date]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const label = new Map(flats.map((f) => [f.id, f.label]));
-
   return (
     <>
-      <h2>Visitor log</h2>
-      <div className="row">
-        <label>
-          Date <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <select value={flatId} onChange={(e) => setFlatId(e.target.value)} aria-label="Flat">
-          <option value="">All flats</option>
-          {flats.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-        <button onClick={() => void load()}>Refresh</button>
-      </div>
-      {error && <p className="error">{error}</p>}
-      <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Photo</th>
-              <th>Time</th>
-              <th>Visitor</th>
-              <th>Flat</th>
-              <th>Purpose</th>
-              <th>Outcome</th>
-              <th>In</th>
-              <th>Out</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((v) => (
-              <tr key={v.id}>
-                <td>{v.photo_path && photos[v.photo_path] && <img className="thumb" src={photos[v.photo_path]} alt="" />}</td>
-                <td>{new Date(v.created_at).toLocaleString()}</td>
-                <td>{v.name}</td>
-                <td>{label.get(v.flat_id) ?? ''}</td>
-                <td>{v.purpose}</td>
-                <td>{v.manual_outcome ? `${v.status} (${v.manual_outcome})` : v.status}</td>
-                <td>{time(v.entry_at)}</td>
-                <td>{time(v.exit_at)}</td>
-              </tr>
+      <PageHeader title="Visitor log" subtitle="Every visitor recorded at the gate." />
+      {error && <ErrorBanner message={error} onRetry={() => void load()} />}
+      <Card>
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-4">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" aria-label="Date" />
+          <Select value={flatId} onChange={(e) => setFlatId(e.target.value)} className="w-44" aria-label="Flat">
+            <option value="">All flats</option>
+            {flats.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
             ))}
-            {rows.length === 0 && (
+          </Select>
+          <Button variant="secondary" icon="refresh" onClick={() => void load()}>
+            Refresh
+          </Button>
+        </div>
+        {rows && rows.length === 0 ? (
+          <EmptyState icon="clipboard" title="No visits">Nothing recorded for these filters.</EmptyState>
+        ) : (
+          <Table
+            head={
               <tr>
-                <td colSpan={8} className="muted">
-                  No visits.
-                </td>
+                <th className={th}>Visitor</th>
+                <th className={th}>Flat</th>
+                <th className={th}>Purpose</th>
+                <th className={th}>Outcome</th>
+                <th className={th}>Recorded</th>
+                <th className={th}>In</th>
+                <th className={th}>Out</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-        {rows.length === PAGE && <p className="muted">Showing the newest {PAGE}. Narrow by date or flat to see more.</p>}
-      </div>
+            }
+          >
+            {rows?.map((v) => {
+              const st = visitStyle(v.status);
+              return (
+                <tr key={v.id} className="hover:bg-slate-50/60">
+                  <td className={td}>
+                    <div className="flex items-center gap-3">
+                      {v.photo_path && photos[v.photo_path] ? (
+                        <img className="h-10 w-10 rounded-xl object-cover ring-1 ring-slate-200" src={photos[v.photo_path]} alt="" />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">
+                          {v.name.slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <span className="font-medium text-slate-900">{v.name}</span>
+                    </div>
+                  </td>
+                  <td className={td}>{byId.get(v.flat_id)?.label ?? ''}</td>
+                  <td className={td}>{titleCase(v.purpose)}</td>
+                  <td className={td}>
+                    <Pill tone={st.tone} icon={st.icon}>
+                      {titleCase(v.status)}
+                      {v.manual_outcome && ` · ${titleCase(v.manual_outcome)}`}
+                    </Pill>
+                  </td>
+                  <td className={`${td} whitespace-nowrap text-slate-500`}>{new Date(v.created_at).toLocaleString()}</td>
+                  <td className={td}>{time(v.entry_at)}</td>
+                  <td className={td}>{time(v.exit_at)}</td>
+                </tr>
+              );
+            })}
+          </Table>
+        )}
+        {rows?.length === PAGE && <p className="px-5 py-3 text-xs text-slate-500">Showing the newest {PAGE}. Narrow by date or flat to see more.</p>}
+      </Card>
     </>
   );
 }
