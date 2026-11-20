@@ -30,40 +30,61 @@ function Stub({ label }: { label: string }) {
   return <Text>{label}</Text>;
 }
 
-it('sends a signed-out user opening the app to the login screen', async () => {
-  await renderRouter(
-    {
-      _layout: RootLayout,
-      index: Index,
-      '(auth)/_layout': { default: () => require('expo-router').Slot() },
-      '(auth)/login': () => <Stub label="LOGIN SCREEN" />,
-      '(auth)/verify': () => <Stub label="VERIFY" />,
-      '(guard)/index': () => <Stub label="GUARD" />,
-      '(resident)/index': () => <Stub label="RESIDENT" />,
-      'no-access': () => <Stub label="NO ACCESS" />,
-      'battery-guide': () => <Stub label="BATTERY" />,
-    },
-    { initialUrl: '/' },
-  );
-  expect(await screen.findByText('LOGIN SCREEN')).toBeTruthy();
+const routes = {
+  _layout: RootLayout,
+  index: Index,
+  '(auth)/_layout': { default: () => require('expo-router').Slot() },
+  '(auth)/welcome': () => <Stub label="WELCOME SCREEN" />,
+  '(auth)/staff-login': () => <Stub label="STAFF LOGIN" />,
+  '(admin)/index': () => <Stub label="ADMIN" />,
+  '(guard)/index': () => <Stub label="GUARD" />,
+  '(resident)/index': () => <Stub label="RESIDENT" />,
+  who: () => <Stub label="WHO" />,
+  'no-access': () => <Stub label="NO ACCESS" />,
+  'battery-guide': () => <Stub label="BATTERY" />,
+};
+
+function signedIn() {
+  const { supabase } = jest.requireMock('@/lib/supabase');
+  supabase.auth.getSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
+  return jest.requireMock('@/lib/postLogin').bootstrapSignedInUser as jest.Mock;
+}
+
+it('sends a signed-out user opening the app to the welcome screen', async () => {
+  await renderRouter(routes, { initialUrl: '/' });
+  expect(await screen.findByText('WELCOME SCREEN')).toBeTruthy();
   expect(screen.queryByText(/unmatched/i)).toBeNull();
 });
 
-it('keeps a signed-in user off the login screen while their home loads', async () => {
-  const { supabase } = jest.requireMock('@/lib/supabase');
-  supabase.auth.getSession.mockResolvedValueOnce({ data: { session: { user: { id: 'u1' } } } });
-  jest.requireMock('@/lib/postLogin').bootstrapSignedInUser.mockReturnValue(new Promise(() => {}));
-  await renderRouter(
-    {
-      _layout: RootLayout,
-      index: Index,
-      '(auth)/_layout': { default: () => require('expo-router').Slot() },
-      '(auth)/login': () => <Stub label="LOGIN SCREEN" />,
-      '(guard)/index': () => <Stub label="GUARD" />,
-    },
-    { initialUrl: '/' },
-  );
-  await waitFor(() => expect(jest.requireMock('@/lib/postLogin').bootstrapSignedInUser).toHaveBeenCalledWith('u1'));
-  expect(screen.queryByText('LOGIN SCREEN')).toBeNull();
+it('keeps a signed-in user off the welcome screen while their home loads', async () => {
+  const bootstrap = signedIn();
+  bootstrap.mockReturnValue(new Promise(() => {}));
+  await renderRouter(routes, { initialUrl: '/' });
+  await waitFor(() => expect(bootstrap).toHaveBeenCalledWith('u1'));
+  expect(screen.queryByText('WELCOME SCREEN')).toBeNull();
   expect(screen.queryByText(/unmatched/i)).toBeNull();
+});
+
+it('asks a freshly signed-in resident who is using the phone', async () => {
+  signedIn().mockResolvedValue({
+    home: '/(resident)',
+    needsActorName: true,
+    showBatteryGuide: false,
+    roles: ['resident'],
+    pushStatus: 'ok',
+  });
+  await renderRouter(routes, { initialUrl: '/' });
+  expect(await screen.findByText('WHO')).toBeTruthy();
+});
+
+it('sends an admin to the admin home', async () => {
+  signedIn().mockResolvedValue({
+    home: '/(admin)',
+    needsActorName: false,
+    showBatteryGuide: false,
+    roles: ['admin'],
+    pushStatus: 'ok',
+  });
+  await renderRouter(routes, { initialUrl: '/' });
+  expect(await screen.findByText('ADMIN')).toBeTruthy();
 });

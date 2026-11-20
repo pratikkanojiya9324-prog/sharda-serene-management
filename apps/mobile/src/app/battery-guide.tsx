@@ -1,9 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Linking } from 'react-native';
 
 import { markBatteryGuideShown } from '@/lib/postLogin';
 import type { Home } from '@/lib/session';
-import { ui } from '@/lib/ui';
+import { Button, Card, EmptyState, Screen } from '@/theme/components';
 
 export default function BatteryGuide() {
   const router = useRouter();
@@ -15,19 +15,21 @@ export default function BatteryGuide() {
   }
 
   return (
-    <View style={ui.screen}>
-      <Text style={ui.title}>Don't miss visitors</Text>
-      <Text style={ui.body}>
-        Some phones (Xiaomi, Oppo, Vivo, Realme, Samsung) block notifications to save battery. Open the
-        settings for Society Gate and set Battery to "No restrictions" (or "Unrestricted") so visitor alerts
-        always reach you.
-      </Text>
-      <Pressable style={ui.button} onPress={() => Linking.openSettings()}>
-        <Text style={ui.buttonText}>Open settings</Text>
-      </Pressable>
-      <Pressable style={ui.secondary} onPress={finish}>
-        <Text style={ui.secondaryText}>Done</Text>
-      </Pressable>
-    </View>
+    <Screen contentStyle={{ justifyContent: 'center' }}>
+      <Card>
+        <EmptyState
+          icon="battery-charging-outline"
+          tone="accent"
+          title="Don't miss visitors"
+          message={
+            'Some phones (Xiaomi, Oppo, Vivo, Realme, Samsung) block notifications to save battery. Open the ' +
+            'settings for Society Gate and set Battery to "No restrictions" (or "Unrestricted") so visitor ' +
+            'alerts always reach you.'
+          }
+        />
+        <Button title="Open settings" icon="settings-outline" onPress={() => Linking.openSettings()} />
+        <Button title="Done" variant="ghost" onPress={finish} />
+      </Card>
+    </Screen>
   );
 }

@@ -13,7 +13,7 @@ export type PushStatus = 'ok' | 'denied' | 'no_project_id' | 'error';
 const TOKEN_KEY = 'pushToken';
 
 /**
- * Creates the Android `visitor` channel, asks permission and registers this
+ * Creates the Android `visitor` and `default` channels, asks permission and registers this
  * device's Expo push token for the signed-in user (register_push_token moves the
  * token to the caller if someone else used this phone before).
  */
@@ -23,6 +23,12 @@ export async function registerPushToken(): Promise<PushStatus> {
       await Notifications.setNotificationChannelAsync('visitor', {
         name: 'Visitors',
         importance: Notifications.AndroidImportance.MAX,
+        sound: 'default',
+      });
+      // Notices, complaints and bills are sent without a channelId, so they land here.
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Society updates',
+        importance: Notifications.AndroidImportance.DEFAULT,
         sound: 'default',
       });
     }

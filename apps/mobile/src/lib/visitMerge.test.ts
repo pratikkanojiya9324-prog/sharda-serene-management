@@ -12,6 +12,7 @@ const base: Visit = {
   status: 'pending',
   responded_by: null,
   responded_at: null,
+  responded_by_name: null,
   manual_outcome: null,
   created_by: 'g1',
   pass_id: null,

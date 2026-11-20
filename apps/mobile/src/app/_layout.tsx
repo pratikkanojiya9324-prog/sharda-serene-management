@@ -2,17 +2,18 @@ import type { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, View } from 'react-native';
 
 import { notificationTarget } from '@/lib/notificationRoute';
 import { bootstrapSignedInUser } from '@/lib/postLogin';
 import { registerPushToken, type PushStatus } from '@/lib/push';
 import { PushStatusContext } from '@/lib/pushStatus';
 import { SessionContext } from '@/lib/sessionContext';
-import type { Role } from '@/lib/session';
+import { firstStop, type Role } from '@/lib/session';
 import { signOut } from '@/lib/signOut';
 import { supabase } from '@/lib/supabase';
-import { ui } from '@/lib/ui';
+import { Banner, Button, Card } from '@/theme/components';
+import { space, useTheme } from '@/theme/tokens';
 
 // Show visitor alerts even while the app is open (default is to drop them silently).
 Notifications.setNotificationHandler({
@@ -29,6 +30,7 @@ let handledNotificationId: string | null = null;
 
 export default function RootLayout() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -64,9 +66,7 @@ export default function RootLayout() {
     bootstrapSignedInUser(userId)
       .then((result) => {
         setPushStatus(result.pushStatus);
-        if (result.showBatteryGuide) {
-          router.replace({ pathname: '/battery-guide', params: { next: result.home } });
-        } else router.replace(result.home);
+        router.replace(firstStop(result));
         setRoles(result.roles);
       })
       .catch((e: unknown) => {
@@ -105,8 +105,8 @@ export default function RootLayout() {
 
   if (!ready) {
     return (
-      <View style={ui.screen}>
-        <ActivityIndicator />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -121,22 +121,20 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
         <Stack.Protected guard={!!session}>
+          <Stack.Screen name="(admin)" />
           <Stack.Screen name="(guard)" />
           <Stack.Screen name="(resident)" />
+          <Stack.Screen name="who" />
           <Stack.Screen name="no-access" />
           <Stack.Screen name="battery-guide" />
         </Stack.Protected>
       </Stack>
       {bootError && session ? (
-        <View style={{ position: 'absolute', bottom: 24, left: 24, right: 24, gap: 8, backgroundColor: '#fff' }}>
-          <Text style={ui.error}>Could not load your account: {bootError}</Text>
-          <Pressable style={ui.button} onPress={retryBootstrap}>
-            <Text style={ui.buttonText}>Try again</Text>
-          </Pressable>
-          <Pressable style={ui.secondary} onPress={() => signOut()}>
-            <Text style={ui.secondaryText}>Sign out</Text>
-          </Pressable>
-        </View>
+        <Card style={{ position: 'absolute', bottom: space.xl, left: space.xl, right: space.xl }}>
+          <Banner text={`Could not load your account: ${bootError}`} />
+          <Button title="Try again" icon="refresh" onPress={retryBootstrap} />
+          <Button title="Sign out" icon="log-out-outline" variant="ghost" onPress={() => signOut()} />
+        </Card>
       ) : null}
     </PushStatusContext.Provider>
     </SessionContext.Provider>
