@@ -120,7 +120,23 @@ Run these from `apps/mobile`.
    npx eas build -p android --profile production
    ```
    Publishing on Google Play needs a developer account (US$25, one time).
-4. Push notifications on Android also need Firebase Cloud Messaging credentials; `eas build` walks you through them the first time (`npx eas credentials`).
+4. **Android push notifications need Firebase (FCM V1).** Do the one-time setup in "Push notifications on Android (Firebase)" below **before** the build you give to residents, or visitor alerts will not arrive.
+
+### Push notifications on Android (Firebase)
+
+Expo delivers Android pushes through Firebase Cloud Messaging (FCM V1). EAS does not create the Firebase project or `google-services.json` for you. You (the owner) do these console steps once; the code is already wired.
+
+1. Go to https://console.firebase.google.com and click **Add project** (any name, e.g. "Society Gate"). Google Analytics is not needed.
+2. In the project, **Add app** → **Android**. Package name: `in.societygate.app` (it must match `android.package` in `apps/mobile/app.json`). The nickname is optional; skip the SHA-1.
+3. Download **google-services.json** and save it as `apps/mobile/google-services.json`. It is not a secret (it only identifies the Firebase project), so you can commit it. `apps/mobile/app.config.js` adds it to the build automatically when the file exists; without it the app still builds, but Android push will not work.
+4. In Firebase: **Project settings** → **Service accounts** → **Generate new private key**. This downloads a JSON key. **This one IS secret**: do not commit it; keep it somewhere safe.
+5. Upload that key to EAS so Expo can send through your Firebase project:
+   ```
+   cd apps/mobile
+   npx eas credentials
+   ```
+   Choose **Android** → your build profile (e.g. `preview` or `production`) → **Google Service Account** → **Manage your Google Service Account Key for Push Notifications (FCM V1)** → **Set up a Google Service Account Key for Push Notifications (FCM V1)** → **Upload a new service account key**, and pick the JSON from step 4.
+6. Build again (`npx eas build -p android --profile preview`), install it, and log in as a resident. A row should appear in `push_tokens` (SQL editor: `select * from push_tokens;`). Then follow "Check notifications are working" below.
 
 The Android package name is `in.societygate.app` (in `apps/mobile/app.json`). **Change it before your first Play Store upload if you want a different one: it cannot be changed afterwards.**
 
