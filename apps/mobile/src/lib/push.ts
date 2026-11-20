@@ -23,13 +23,12 @@ export async function registerPushToken(): Promise<PushStatus> {
       await Notifications.setNotificationChannelAsync('visitor', {
         name: 'Visitors',
         importance: Notifications.AndroidImportance.MAX,
-        sound: 'default',
+        // No `sound`: on Android it names a bundled sound file; omitted = system default sound.
       });
       // Notices, complaints and bills are sent without a channelId, so they land here.
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Society updates',
         importance: Notifications.AndroidImportance.DEFAULT,
-        sound: 'default',
       });
     }
 
