@@ -1,9 +1,11 @@
 import type { Database } from '@society-gate/shared';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Pressable, Text, View } from 'react-native';
 
+import { usePushStatus } from '@/lib/pushStatus';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
+import { signOut } from '@/lib/signOut';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 
@@ -12,6 +14,7 @@ type Visit = Database['public']['Tables']['visits']['Row'];
 export default function ResidentHome() {
   const router = useRouter();
   const { flat, loading, error: flatError } = useResidentFlat();
+  const pushStatus = usePushStatus();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,7 +74,7 @@ export default function ResidentHome() {
     return (
       <View style={ui.screen}>
         <Text style={ui.body}>{flatError ?? 'No flat is linked to your account yet. Ask your admin.'}</Text>
-        <Pressable style={ui.secondary} onPress={() => supabase.auth.signOut()}>
+        <Pressable style={ui.secondary} onPress={() => signOut()}>
           <Text style={ui.secondaryText}>Sign out</Text>
         </Pressable>
       </View>
@@ -94,6 +97,7 @@ export default function ResidentHome() {
       }}
       ListHeaderComponent={
         <View style={{ gap: 12, marginBottom: 8 }}>
+          {pushStatus && pushStatus !== 'ok' ? <NotificationsOffBanner /> : null}
           <Text style={ui.title}>Flat {flat.label}</Text>
           <FlatSwitcher />
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -129,11 +133,33 @@ export default function ResidentHome() {
         );
       }}
       ListFooterComponent={
-        <Pressable style={ui.secondary} onPress={() => supabase.auth.signOut()}>
+        <Pressable style={ui.secondary} onPress={() => signOut()}>
           <Text style={ui.secondaryText}>Sign out</Text>
         </Pressable>
       }
     />
+  );
+}
+
+function NotificationsOffBanner() {
+  return (
+    <View
+      style={{
+        backgroundColor: '#fef2f2',
+        borderColor: '#b91c1c',
+        borderWidth: 1,
+        borderRadius: 10,
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <Text style={[ui.body, { flex: 1, color: '#b91c1c' }]}>Notifications are off — you may miss visitors</Text>
+      <Pressable style={[ui.button, { backgroundColor: '#b91c1c', paddingHorizontal: 18 }]} onPress={() => Linking.openSettings()}>
+        <Text style={ui.buttonText}>Fix</Text>
+      </Pressable>
+    </View>
   );
 }
 

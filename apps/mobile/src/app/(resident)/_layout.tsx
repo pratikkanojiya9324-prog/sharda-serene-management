@@ -1,31 +1,10 @@
-import { Stack, useRouter } from 'expo-router';
-import * as Notifications from 'expo-notifications';
-import { useEffect } from 'react';
+import { Stack } from 'expo-router';
 
 import { ResidentFlatProvider } from '@/lib/residentFlat';
 
-// Survives layout remounts so one tap is only ever handled once.
-let handledNotificationId: string | null = null;
-
+// Notification taps are handled in the root layout (they must also work for a
+// user whose home is the guard screen).
 export default function ResidentLayout() {
-  const router = useRouter();
-  // Covers both a tap while running and a cold start from a notification.
-  const response = Notifications.useLastNotificationResponse();
-
-  useEffect(() => {
-    if (!response) return;
-    if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
-    const id = response.notification.request.identifier;
-    if (handledNotificationId === id) return;
-    handledNotificationId = id;
-    const data = response.notification.request.content.data as { visitId?: string; type?: string };
-    if (data.type === 'visit_request' && data.visitId) {
-      router.push({ pathname: '/(resident)/request/[id]', params: { id: data.visitId } });
-    } else if (data.type === 'pass_used') {
-      router.push('/(resident)/history');
-    }
-  }, [response, router]);
-
   return (
     <ResidentFlatProvider>
       <Stack>

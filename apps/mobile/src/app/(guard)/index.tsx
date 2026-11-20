@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
 import { useGuardSociety } from '@/lib/guardSociety';
+import { signOut } from '@/lib/signOut';
 import { supabase } from '@/lib/supabase';
 import { ui } from '@/lib/ui';
 
@@ -82,7 +83,7 @@ export default function GuardHome() {
           </Pressable>
         )}
       />
-      <Pressable style={ui.secondary} onPress={() => supabase.auth.signOut()}>
+      <Pressable style={ui.secondary} onPress={() => signOut()}>
         <Text style={ui.secondaryText}>Sign out</Text>
       </Pressable>
     </View>
