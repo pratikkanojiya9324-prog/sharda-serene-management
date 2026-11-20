@@ -67,7 +67,9 @@ async function societyTokens(supabase: SupabaseClient<any, any, any>, societyId:
 
 // deno-lint-ignore no-explicit-any
 async function complaintFlatLabel(supabase: SupabaseClient<any, any, any>, flatId: string): Promise<string> {
-  const { data } = await supabase.from("flats").select("number, towers(name, building)").eq("id", flatId).maybeSingle();
+  const { data, error } = await supabase
+    .from("flats").select("number, towers!flats_tower_id_fkey(name, building)").eq("id", flatId).maybeSingle();
+  if (error) console.error("complaintFlatLabel failed", error.message);
   // deno-lint-ignore no-explicit-any
   const tower = (data as any)?.towers;
   if (!data || !tower) return "Flat";

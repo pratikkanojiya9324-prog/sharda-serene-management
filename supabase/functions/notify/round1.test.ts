@@ -27,6 +27,13 @@ Deno.test("formatters", () => {
   assertEquals(flatLabel("Building 1", "A", "101"), "B1-A-101");
 });
 
+Deno.test("flatLabel uses the trailing digits like packages/shared", () => {
+  assertEquals(flatLabel("Building 2", "B", "704"), "B2-B-704");
+  assertEquals(flatLabel("Block 12 East 3", "A", "1"), "B3-A-1");
+  assertEquals(flatLabel("Tower 4  ", "C", "2"), "B4-C-2");
+  assertEquals(flatLabel("Annexe", "A", "9"), "Annexe-A-9");
+});
+
 Deno.test("notice_posted", () => {
   const m = buildNoticePosted({ id: "n1", title: "Water cut" }, T);
   assertEquals(m.length, 2);

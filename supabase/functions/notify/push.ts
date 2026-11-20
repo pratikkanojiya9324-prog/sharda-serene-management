@@ -94,7 +94,7 @@ export function formatDueDate(isoDate: string): string {
 
 /** Building 1 / A / 101 -> `B1-A-101`. */
 export function flatLabel(building: string, wing: string, number: string): string {
-  const digits = building.match(/\d+/)?.[0];
+  const digits = building.match(/(\d+)\s*$/)?.[1];
   return `${digits ? `B${digits}` : building}-${wing}-${number}`;
 }
 
