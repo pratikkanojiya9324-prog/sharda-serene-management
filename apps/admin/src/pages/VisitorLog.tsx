@@ -16,9 +16,14 @@ interface VisitRow {
   manual_outcome: string | null;
   flat_id: string;
   photo_path: string | null;
+  entry_at: string | null;
+  exit_at: string | null;
 }
 
 const PAGE = 200;
+
+const time = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
 export default function VisitorLog({ society }: { society: AdminSociety }) {
   const [flats, setFlats] = useState<FlatOption[]>([]);
@@ -107,6 +112,8 @@ export default function VisitorLog({ society }: { society: AdminSociety }) {
               <th>Flat</th>
               <th>Purpose</th>
               <th>Outcome</th>
+              <th>In</th>
+              <th>Out</th>
             </tr>
           </thead>
           <tbody>
@@ -118,11 +125,13 @@ export default function VisitorLog({ society }: { society: AdminSociety }) {
                 <td>{label.get(v.flat_id) ?? ''}</td>
                 <td>{v.purpose}</td>
                 <td>{v.manual_outcome ? `${v.status} (${v.manual_outcome})` : v.status}</td>
+                <td>{time(v.entry_at)}</td>
+                <td>{time(v.exit_at)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={8} className="muted">
                   No visits.
                 </td>
               </tr>

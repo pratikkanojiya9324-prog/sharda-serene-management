@@ -11,6 +11,8 @@ import { ui } from '@/lib/ui';
 type Visit = Database['public']['Tables']['visits']['Row'];
 const PAGE = 30;
 
+const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
 export default function HistoryScreen() {
   const router = useRouter();
   const { flat } = useResidentFlat();
@@ -67,6 +69,12 @@ export default function HistoryScreen() {
           <Text style={ui.body}>
             {item.purpose} · {item.status.replace(/_/g, ' ')} · {new Date(item.created_at).toLocaleString()}
           </Text>
+          {item.entry_at ? (
+            <Text style={ui.body}>
+              In {time(item.entry_at)}
+              {item.exit_at ? ` · Out ${time(item.exit_at)}` : ''}
+            </Text>
+          ) : null}
         </Pressable>
       )}
       ListFooterComponent={

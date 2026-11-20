@@ -24,6 +24,8 @@ const ACTION_ERRORS: Record<string, string> = {
   not_authorized: 'You are not allowed to do that.',
 };
 
+const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
 export default function VisitScreen() {
   const { id, photo } = useLocalSearchParams<{ id: string; photo?: string }>();
   // Realtime + re-fetch on (re)subscribe / foreground + 4 s poll while waiting.
@@ -134,7 +136,12 @@ export default function VisitScreen() {
           <Text style={ui.buttonText}>Mark exit</Text>
         </Pressable>
       ) : null}
-      {visit.exit_at ? <Text style={ui.body}>Exited</Text> : null}
+      {visit.entry_at ? (
+        <Text style={ui.body}>
+          Entered {time(visit.entry_at)}
+          {visit.exit_at ? ` · Exited ${time(visit.exit_at)}` : ''}
+        </Text>
+      ) : null}
 
       {error ? <Text style={ui.error}>{error}</Text> : null}
     </ScrollView>
