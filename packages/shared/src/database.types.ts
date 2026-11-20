@@ -79,6 +79,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "towers"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "flats_tower_same_society"
+      columns: ["tower_id","society_id"]
+isOneToOne: false
+      referencedRelation: "towers"
+      referencedColumns: ["id","society_id"]
     }
                   ]
                 },"invites": {
@@ -105,6 +111,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "flats"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "invites_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
     },{
       foreignKeyName: "invites_society_id_fkey"
       columns: ["society_id"]
@@ -163,6 +175,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "flats"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "passes_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
     },{
       foreignKeyName: "passes_society_id_fkey"
       columns: ["society_id"]
@@ -264,6 +282,12 @@ isOneToOne: false
       referencedRelation: "flats"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "visits_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
       foreignKeyName: "visits_pass_id_fkey"
       columns: ["pass_id"]
 isOneToOne: false
@@ -289,7 +313,24 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "claim_invites":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
+"has_role":
+{ Args: { "p_role": Database["public"]['Enums']["member_role"],"p_society": string }; Returns: boolean
+                           },
+"has_role_for_flat":
+{ Args: { "p_flat": string,"p_role": Database["public"]['Enums']["member_role"] }; Returns: boolean
+                           },
+"is_flat_resident":
+{ Args: { "p_flat": string }; Returns: boolean
+                           },
+"is_member":
+{ Args: { "p_society": string }; Returns: boolean
+                           },
+"shares_society":
+{ Args: { "p_profile": string }; Returns: boolean
+                           }
           }
           Enums: {
             "manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
