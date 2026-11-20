@@ -3,6 +3,7 @@
 // family, notices, complaints and bills are only created where none exist yet.
 //
 //   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run seed:demo
+// Optional: SEED_TEST_PHONES="9876543210,9123456789" gives those numbers to B1-A-101 / B1-A-102 members.
 // Local stack:  eval "$(npx supabase status -o env)"
 //               SUPABASE_URL=$API_URL SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY npm run seed:demo
 import { createClient } from '@supabase/supabase-js';
@@ -95,11 +96,11 @@ for (let page = 1; ; page++) {
   if (data.users.length < 1000) break;
 }
 
-async function ensureUser(email, password) {
+async function ensureUser(email, password, metadata) {
   let id = userByEmail.get(email);
   let created = false;
   if (!id) {
-    const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true });
+    const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true, ...(metadata ? { user_metadata: metadata } : {}) });
     if (error) throw new Error(`${email}: ${error.message}`);
     id = data.user.id;
     userByEmail.set(email, id);
@@ -125,7 +126,7 @@ await inBatches(flats, 8, async (f) => {
 
 const staffIds = {};
 for (const s of STAFF) {
-  const { id } = await ensureUser(staffEmail(s.username, societyId), s.password);
+  const { id } = await ensureUser(staffEmail(s.username, societyId), s.password, { username: s.username });
   staffIds[s.username] = id;
   await ok(db.from('profiles').upsert({ id, name: s.name, phone: null }, { onConflict: 'id', ignoreDuplicates: true }));
   await ok(
@@ -141,9 +142,19 @@ const FIRST = ['Rahul', 'Priya', 'Amit', 'Sunita', 'Vikram', 'Neha', 'Arjun', 'K
 const LAST = ['Sharma', 'Patel', 'Deshmukh', 'Iyer', 'Singh', 'Kulkarni', 'Mehta', 'Joshi'];
 const RELATIONS = ['Self', 'Spouse', 'Son', 'Daughter', 'Mother', 'Father'];
 const withFamily = new Set((await ok(db.from('family_members').select('flat_id').eq('society_id', societyId).limit(1000))).map((r) => r.flat_id));
+// Family phones are NULL by default so no real person's number is ever seeded. For push/phone
+// tests, SEED_TEST_PHONES="9876543210,9123456789" assigns those numbers (as +91...) round-robin
+// to the members of B1-A-101 and B1-A-102 only.
+const testPhones = (process.env.SEED_TEST_PHONES ?? '')
+  .split(',')
+  .map((p) => p.replace(/D/g, '').slice(-10))
+  .filter((p) => p.length === 10)
+  .map((p) => `+91${p}`);
+const PHONE_FLATS = new Set(['B1-A-101', 'B1-A-102']);
+let phoneIdx = 0;
 const familyRows = [];
 flats.forEach((f, i) => {
-  if (i % 2 !== 0 || withFamily.has(f.id)) return;
+  if (withFamily.has(f.id) || (i % 2 !== 0 && !(testPhones.length && PHONE_FLATS.has(f.label)))) return;
   const count = (i % 4) + 1;
   const last = LAST[i % LAST.length];
   for (let m = 0; m < count; m++) {
@@ -151,7 +162,7 @@ flats.forEach((f, i) => {
       society_id: societyId,
       flat_id: f.id,
       name: `${FIRST[(i + m * 5) % FIRST.length]} ${last}`,
-      phone: m < 2 ? `98${String(10000000 + i * 31 + m).slice(0, 8)}` : null,
+      phone: testPhones.length && PHONE_FLATS.has(f.label) ? testPhones[phoneIdx++ % testPhones.length] : null,
       relation: RELATIONS[m],
     });
   }
