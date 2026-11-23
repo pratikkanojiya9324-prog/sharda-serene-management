@@ -10,6 +10,8 @@ const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/complaints', label: 'Complaints', icon: 'wrench' },
   { to: '/bills', label: 'Bills', icon: 'receipt' },
   { to: '/visits', label: 'Visitor log', icon: 'clipboard' },
+  { to: '/daily-help', label: 'Daily help', icon: 'users' },
+  { to: '/parcels', label: 'Parcels', icon: 'paperclip' },
 ];
 
 export default function Layout({

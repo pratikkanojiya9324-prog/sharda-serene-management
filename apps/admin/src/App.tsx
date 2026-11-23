@@ -8,9 +8,11 @@ import { SOCIETY_ID, supabase } from './lib/supabase';
 import Bills from './pages/Bills';
 import Complaints from './pages/Complaints';
 import Dashboard from './pages/Dashboard';
+import DailyHelp from './pages/DailyHelp';
 import Flats from './pages/Flats';
 import Login from './pages/Login';
 import Notices from './pages/Notices';
+import Parcels from './pages/Parcels';
 import Staff from './pages/Staff';
 import VisitorLog from './pages/VisitorLog';
 
@@ -126,6 +128,8 @@ export default function App() {
         <Route path="/complaints" element={<Complaints userId={session.user.id} userName={ctx.userName} />} />
         <Route path="/bills" element={<Bills />} />
         <Route path="/visits" element={<VisitorLog />} />
+        <Route path="/daily-help" element={<DailyHelp />} />
+        <Route path="/parcels" element={<Parcels />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>

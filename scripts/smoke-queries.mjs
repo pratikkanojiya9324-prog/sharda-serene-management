@@ -263,6 +263,22 @@ check(
   true,
 );
 
+// --- admin daily help + parcels (Round 2) ---------------------------------------
+check(
+  'admin  DailyHelp  helpers HELPER_GUARD_SELECT (today attendance)',
+  await ac
+    .from('helpers')
+    .select(sel('HELPER_GUARD_SELECT', S.HELPER_GUARD_SELECT))
+    .eq('society_id', societyId)
+    .gte('helper_attendance.entry_at', startOfDay.toISOString())
+    .order('name')
+    .order('id'),
+);
+check(
+  'admin  Parcels    parcels PARCEL_SELECT',
+  await ac.from('parcels').select(sel('PARCEL_SELECT', S.PARCEL_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }).limit(500),
+);
+
 // --- coverage: every exported select constant must have been run ----------------
 for (const name of [...Object.keys(S), ...Object.keys(A)]) {
   if (!name.endsWith('_SELECT')) continue;
