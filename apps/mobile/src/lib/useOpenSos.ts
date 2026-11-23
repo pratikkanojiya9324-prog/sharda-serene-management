@@ -1,5 +1,5 @@
 import { SOS_SELECT } from '@society-gate/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { guardErrorText } from './guardErrors';
@@ -19,6 +19,8 @@ function useLiveSos(channelName: string, filter: string | null, fetchRows: Fetch
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const alive = useRef(true);
+  // supabase-js shares a channel per topic: each hook instance needs its own.
+  const instance = useId();
 
   const refetch = useCallback(async () => {
     const res = await fetchRows();
@@ -35,7 +37,7 @@ function useLiveSos(channelName: string, filter: string | null, fetchRows: Fetch
     alive.current = true;
     const first = setTimeout(refetch, 0);
     const channel = supabase
-      .channel(channelName)
+      .channel(`${channelName}-${instance}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_alerts', filter }, () => refetch())
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') refetch();
@@ -49,7 +51,7 @@ function useLiveSos(channelName: string, filter: string | null, fetchRows: Fetch
       appState.remove();
       supabase.removeChannel(channel);
     };
-  }, [channelName, filter, refetch]);
+  }, [channelName, instance, filter, refetch]);
 
   return { rows, error, loaded, refetch };
 }

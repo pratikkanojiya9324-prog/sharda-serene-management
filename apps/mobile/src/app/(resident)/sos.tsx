@@ -1,16 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { SOS_TYPES, type SosType } from '@society-gate/shared';
+import { type SosType } from '@society-gate/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Text, View } from 'react-native';
 
-import { EmergencyContactCards, fetchEmergencyContacts, type Contact } from '@/components/EmergencyContacts';
+import { EmergencyContactCards, fetchEmergencyContacts, loadCachedContacts, type Contact } from '@/components/EmergencyContacts';
 import { NoFlatState } from '@/components/resident';
 import { getActorName } from '@/lib/actor';
 import { reportError } from '@/lib/errors';
 import { timeAgo } from '@/lib/format';
 import { useResidentFlat } from '@/lib/residentFlat';
-import { sosSendState, sosStatusText, sosTypeIcon, sosTypeLabel, type SosAlert, type SosStatus } from '@/lib/sos';
+import { SOS_TIMEOUT_TEXT, sosSendRequest, sosSendState, withTimeout, sosStatusText, sosTypeIcon, sosTypeLabel, type SosAlert, type SosStatus } from '@/lib/sos';
 import { supabase } from '@/lib/supabase';
 import { useFlatSos } from '@/lib/useOpenSos';
 import { Banner, Button, Card, Header, Screen } from '@/theme/components';
@@ -28,7 +28,7 @@ function newest(a: SosAlert | null, b: SosAlert | null): SosAlert | null {
 export default function SosScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { type: typeParam } = useLocalSearchParams<{ type?: string }>();
+  const params = useLocalSearchParams<{ type?: string; at?: string }>();
   const { flat, loading, error: flatError, reload } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const { alert: live, error: liveError, refetch } = useFlatSos(flatId);
@@ -54,11 +54,13 @@ export default function SosScreen() {
       setError(null);
       try {
         const actor = await getActorName();
-        const { data, error: err } = await supabase.rpc('raise_sos', {
-          p_flat_id: flatId,
-          p_type: t,
-          ...(actor ? { p_actor_name: actor } : {}),
-        });
+        const { data, error: err } = await withTimeout(
+          supabase.rpc('raise_sos', {
+            p_flat_id: flatId,
+            p_type: t,
+            ...(actor ? { p_actor_name: actor } : {}),
+          }),
+        );
         if (err || !data) {
           setError(reportError(err ?? { message: '' }));
           return;
@@ -66,7 +68,7 @@ export default function SosScreen() {
         setRaised(data as unknown as SosAlert);
         refetch();
       } catch (e) {
-        setError(reportError(e as { message?: string } | null));
+        setError(e instanceof Error && e.message === SOS_TIMEOUT_TEXT ? SOS_TIMEOUT_TEXT : reportError(e as { message?: string } | null));
       } finally {
         setBusy(false);
         inFlight.current = false;
@@ -77,13 +79,17 @@ export default function SosScreen() {
 
   // Home passes the chosen type: send it once, then drop the param.
   useEffect(() => {
-    if (!flatId || !typeParam) return;
-    const t = SOS_TYPES.find((v) => v.value === typeParam)?.value;
-    if (!t || started.current === typeParam) return;
-    started.current = typeParam;
-    router.setParams({ type: undefined });
-    send(t);
-  }, [flatId, typeParam, send, router]);
+    if (!params.type) {
+      started.current = null;
+      return;
+    }
+    if (!flatId) return;
+    const req = sosSendRequest(params, started.current);
+    if (!req) return;
+    started.current = req.key;
+    router.setParams({ type: undefined, at: undefined });
+    send(req.type);
+  }, [flatId, params, send, router]);
 
   // An error only hides an old alert from a previous emergency, never a live one.
   const state = sosSendState({ busy, error, alert: error && alert?.status !== 'open' && alert?.status !== 'acknowledged' ? null : alert });
@@ -92,6 +98,9 @@ export default function SosScreen() {
   useEffect(() => {
     if (state !== 'failed') return;
     let active = true;
+    loadCachedContacts().then((cached) => {
+      if (active && cached.length) setContacts((cur) => (cur.length ? cur : cached));
+    });
     fetchEmergencyContacts().then((res) => {
       if (!active) return;
       setContacts(res.contacts);

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EMERGENCY_CONTACT_SELECT } from '@society-gate/shared';
 import { useState } from 'react';
 import { Linking, Text, View } from 'react-native';
@@ -10,16 +11,40 @@ import { space, type, useTheme } from '@/theme/tokens';
 
 export type Contact = { id: string; name: string; phone: string; note: string | null };
 
-/** The society's emergency numbers. Returns `error` text instead of throwing. */
-export async function fetchEmergencyContacts(): Promise<{ contacts: Contact[]; error: string | null }> {
-  const { data, error } = await supabase
-    .from('emergency_contacts')
-    .select(EMERGENCY_CONTACT_SELECT)
-    .order('sort_order')
-    .order('created_at');
-  if (error) return { contacts: [], error: reportError(error) };
-  return { contacts: data ?? [], error: null };
+const CACHE_KEY = 'emergencyContacts';
+
+/** The last list fetched successfully (works offline); empty if none. */
+export async function loadCachedContacts(): Promise<Contact[]> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as Contact[]) : [];
+  } catch {
+    return [];
+  }
 }
+
+/**
+ * The society's emergency numbers. Returns `error` text instead of throwing; on
+ * failure the cached list (if any) is returned alongside the error.
+ */
+export async function fetchEmergencyContacts(): Promise<{ contacts: Contact[]; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('emergency_contacts')
+      .select(EMERGENCY_CONTACT_SELECT)
+      .order('sort_order')
+      .order('created_at');
+    if (error) return { contacts: await loadCachedContacts(), error: reportError(error) };
+    const contacts = data ?? [];
+    AsyncStorage.setItem(CACHE_KEY, JSON.stringify(contacts)).catch(() => {});
+    return { contacts, error: null };
+  } catch (e) {
+    return { contacts: await loadCachedContacts(), error: reportError(e as { message?: string } | null) };
+  }
+}
+
+const POLICE: Contact = { id: 'builtin-112', name: 'Police / Emergency 112', phone: '112', note: null };
 
 /** One card per number with a Call button; a failed call shows the number to dial by hand. */
 export function EmergencyContactCards({ contacts }: { contacts: Contact[] }) {
@@ -35,10 +60,11 @@ export function EmergencyContactCards({ contacts }: { contacts: Contact[] }) {
     }
   }
 
+  const all = contacts.some((c) => c.phone.replace(/\D/g, '') === '112') ? contacts : [...contacts, POLICE];
   return (
     <>
       {callError ? <Banner text={callError} /> : null}
-      {contacts.map((c) => (
+      {all.map((c) => (
         <Card key={c.id} style={{ gap: space.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
             <IconBadge icon="call" tone="danger" />

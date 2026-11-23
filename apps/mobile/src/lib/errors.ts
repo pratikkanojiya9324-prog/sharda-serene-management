@@ -41,8 +41,8 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_payment_mode: 'Choose how the bill was paid',
   already_paid: 'This bill is already marked paid',
   // SOS
-  sos_closed: 'This SOS is already closed',
-  invalid_note: 'The note is too long (300 characters at most)',
+  sos_closed: 'This alert is already closed',
+  invalid_note: 'Note is too long',
   // daily help, expected entries, parcels
   invalid_name: 'Enter a name',
   helper_already_linked: 'This person is already added to your flat',

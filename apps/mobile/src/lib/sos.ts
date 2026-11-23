@@ -72,3 +72,40 @@ export function sosSendState(r: {
 
 export const isActiveSos = (a: { status: SosStatus } | null | undefined): boolean =>
   a?.status === 'open' || a?.status === 'acknowledged';
+
+const SOS_TYPE_VALUES: readonly string[] = ['medical', 'fire', 'security', 'lift', 'other'];
+
+/**
+ * Decides whether the SOS screen should send for its route params. Each press on
+ * Home carries a fresh `at` nonce, so the same type can be sent again later (the
+ * hidden tab stays mounted), while a re-render with the same params never re-sends.
+ */
+export function sosSendRequest(
+  params: { type?: string; at?: string },
+  lastKey: string | null,
+): { type: SosType; key: string } | null {
+  if (!params.type || !SOS_TYPE_VALUES.includes(params.type)) return null;
+  const key = `${params.type}:${params.at ?? ''}`;
+  if (key === lastKey) return null;
+  return { type: params.type as SosType, key };
+}
+
+export const SOS_TIMEOUT_MS = 15000;
+export const SOS_TIMEOUT_TEXT = 'No response — check your internet';
+
+/** Rejects with an Error whose message is SOS_TIMEOUT_TEXT if `p` takes longer than `ms`. */
+export function withTimeout<T>(p: PromiseLike<T>, ms = SOS_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(SOS_TIMEOUT_TEXT)), ms);
+    Promise.resolve(p).then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}

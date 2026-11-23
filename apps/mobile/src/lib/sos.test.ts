@@ -1,4 +1,4 @@
-import { SOS_HOLD_MS, sosSendState, sosStatusText, sosTypeIcon, sosTypeLabel } from './sos';
+import { SOS_HOLD_MS, SOS_TIMEOUT_TEXT, sosSendRequest, sosSendState, sosStatusText, sosTypeIcon, sosTypeLabel, withTimeout } from './sos';
 
 describe('sosStatusText', () => {
   it('says the guards are being alerted while open', () => {
@@ -51,5 +51,35 @@ describe('sos types', () => {
   ] as const)('%s', (t, label, icon) => {
     expect(sosTypeLabel(t)).toBe(label);
     expect(sosTypeIcon(t)).toBe(icon);
+  });
+});
+
+describe('sosSendRequest', () => {
+  it('sends on the first press', () => {
+    expect(sosSendRequest({ type: 'medical', at: '1' }, null)).toEqual({ type: 'medical', key: 'medical:1' });
+  });
+  it('does not re-send for the same params', () => {
+    expect(sosSendRequest({ type: 'medical', at: '1' }, 'medical:1')).toBeNull();
+  });
+  it('sends again for a new press of the same type', () => {
+    expect(sosSendRequest({ type: 'medical', at: '2' }, 'medical:1')).toEqual({ type: 'medical', key: 'medical:2' });
+  });
+  it('ignores missing or unknown types', () => {
+    expect(sosSendRequest({}, null)).toBeNull();
+    expect(sosSendRequest({ type: 'nope', at: '1' }, null)).toBeNull();
+  });
+});
+
+describe('withTimeout', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+  it('rejects with the timeout text when the call stalls', async () => {
+    const p = withTimeout(new Promise(() => {}), 1000);
+    const assertion = expect(p).rejects.toThrow(SOS_TIMEOUT_TEXT);
+    jest.advanceTimersByTime(1001);
+    await assertion;
+  });
+  it('passes through a result that arrives in time', async () => {
+    await expect(withTimeout(Promise.resolve(5), 1000)).resolves.toBe(5);
   });
 });

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { ErrorState, IconBadge, Loading, NoFlatState, SectionTitle, useFocusLoad } from '@/components/resident';
+import { fetchEmergencyContacts } from '@/components/EmergencyContacts';
 import { SosHoldButton, SosTypeSheet } from '@/components/SosHoldButton';
 import { VisitRow } from '@/components/VisitRow';
 import { getActorName } from '@/lib/actor';
@@ -45,6 +46,8 @@ export default function ResidentHome() {
 
   const load = useCallback(async () => {
     setActor(await getActorName());
+    // Warm the offline cache of emergency numbers for the SOS failure card.
+    fetchEmergencyContacts().catch(() => {});
     if (!flatId) return;
     const [v, parcels, helpers, polls, votes, events] = await Promise.all([
       supabase.from('visits').select('*').eq('flat_id', flatId).order('created_at', { ascending: false }).limit(20),
@@ -175,7 +178,7 @@ export default function ResidentHome() {
           onClose={() => setSosSheet(false)}
           onPick={(t) => {
             setSosSheet(false);
-            router.push({ pathname: '/(resident)/sos', params: { type: t } });
+            router.push({ pathname: '/(resident)/sos', params: { type: t, at: String(Date.now()) } });
           }}
         />
 
