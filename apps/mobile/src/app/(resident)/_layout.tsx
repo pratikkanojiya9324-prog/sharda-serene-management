@@ -15,7 +15,7 @@ const TABS: { name: string; title: string; icon: IconName; iconActive: IconName 
 ];
 
 /** Full-screen routes reached from Home / More / notifications: no tab button, no tab bar. */
-const HIDDEN = ['request/[id]', 'passes', 'history', 'change-password', 'daily-help', 'expecting', 'parcels', 'polls'];
+const HIDDEN = ['request/[id]', 'passes', 'history', 'change-password', 'daily-help', 'expecting', 'parcels', 'polls', 'amenities', 'events', 'documents', 'directory', 'emergency'];
 
 // Notices, Complaints and Bills are stacks (list → detail) inside their tab.
 // Notification taps are handled in the root layout (they must also work for a

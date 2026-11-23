@@ -6,6 +6,7 @@ type DetailPath =
   | '/(resident)/complaints/[id]'
   | '/(resident)/bills/[id]'
   | '/(resident)/polls/[id]'
+  | '/(resident)/events/[id]'
   | '/(admin)/complaints/[id]';
 
 export type NotificationTarget =
@@ -13,6 +14,7 @@ export type NotificationTarget =
   | '/(resident)/history'
   | '/(resident)/daily-help'
   | '/(resident)/parcels'
+  | '/(resident)/amenities/bookings'
   | null;
 
 /** Round 1 pushes (and visit_auto_approved, whose id is the visit) carry `{ type, id }`; visitor pushes carry `{ type, visitId }`. */
@@ -23,6 +25,7 @@ const RESIDENT_BY_ID = new Map<unknown, DetailPath>([
   ['bill_paid', '/(resident)/bills/[id]'],
   ['poll_created', '/(resident)/polls/[id]'],
   ['poll_reminder', '/(resident)/polls/[id]'],
+  ['event_created', '/(resident)/events/[id]'],
   ['visit_auto_approved', '/(resident)/request/[id]'],
 ]);
 
@@ -52,6 +55,7 @@ export function notificationTarget(data: unknown, roles: Role[]): NotificationTa
   if (type === 'pass_used') return '/(resident)/history';
   if (type === 'helper_in' || type === 'helper_out') return '/(resident)/daily-help';
   if (type === 'parcel_logged' || type === 'parcel_collected') return '/(resident)/parcels';
+  if (type === 'booking_decided') return '/(resident)/amenities/bookings';
   const pathname = RESIDENT_BY_ID.get(type);
   if (pathname && hasId) return { pathname, params: { id: id as string } };
   return null;

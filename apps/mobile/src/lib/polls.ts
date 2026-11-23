@@ -1,7 +1,8 @@
 // Pure helpers for polls (resident + office app). Date maths use Asia/Kolkata
 // (UTC+5:30, no daylight saving) by hand so phones and tests agree.
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+import { IST_OFFSET_MS } from './ist';
+
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
@@ -63,17 +64,6 @@ export function closesAtForDays(days: number, now: Date): Date {
   const ist = new Date(now.getTime() + IST_OFFSET_MS);
   const utc21Ist = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + days, 21, 0);
   return new Date(utc21Ist - IST_OFFSET_MS);
-}
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "Sat 30 Nov, 6:00 PM" in IST. */
-export function formatIst(value: string): string {
-  const d = new Date(new Date(value).getTime() + IST_OFFSET_MS);
-  const h = d.getUTCHours() % 12 || 12;
-  const mm = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}, ${h}:${mm} ${d.getUTCHours() < 12 ? 'AM' : 'PM'}`;
 }
 
 /** polls.options is jsonb: keep only well-formed {id, label} entries, in order. */

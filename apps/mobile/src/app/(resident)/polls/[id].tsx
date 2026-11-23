@@ -9,9 +9,9 @@ import { Loading, NoFlatState, useFocusLoad } from '@/components/resident';
 import { getActorName } from '@/lib/actor';
 import { reportError } from '@/lib/errors';
 import { formatDateTime } from '@/lib/format';
+import { formatIst } from '@/lib/ist';
 import {
   closesLabel,
-  formatIst,
   parseOptions,
   parseResults,
   pollIsOpen,

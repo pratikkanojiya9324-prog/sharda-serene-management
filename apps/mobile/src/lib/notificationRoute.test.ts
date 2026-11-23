@@ -98,3 +98,21 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ type: 'helper_in' }, ['guard'])).toBeNull();
   });
 });
+
+describe('round 3 community pushes', () => {
+  it('opens my bookings for booking_decided', () => {
+    expect(notificationTarget({ type: 'booking_decided', id: 'k1' }, ['resident'])).toBe(
+      '/(resident)/amenities/bookings',
+    );
+  });
+  it('opens the event for event_created', () => {
+    expect(notificationTarget({ type: 'event_created', id: 'e1' }, ['resident'])).toEqual({
+      pathname: '/(resident)/events/[id]',
+      params: { id: 'e1' },
+    });
+    expect(notificationTarget({ type: 'event_created' }, ['resident'])).toBeNull();
+  });
+  it('ignores them for staff-only users', () => {
+    expect(notificationTarget({ type: 'booking_decided', id: 'k1' }, ['admin'])).toBeNull();
+  });
+});

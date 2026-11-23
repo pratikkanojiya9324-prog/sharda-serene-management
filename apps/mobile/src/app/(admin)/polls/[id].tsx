@@ -7,9 +7,9 @@ import { PollResults } from '@/components/PollResults';
 import { Loading, SectionTitle, useFocusLoad } from '@/components/resident';
 import { useAdminSociety } from '@/lib/adminSociety';
 import { reportError } from '@/lib/errors';
+import { formatIst } from '@/lib/ist';
 import {
   closesLabel,
-  formatIst,
   parseOptions,
   parseResults,
   pollIsOpen,

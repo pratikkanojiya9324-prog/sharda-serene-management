@@ -48,6 +48,12 @@ export default function MoreScreen() {
 
       <Group title="Community">
         <Row icon="stats-chart" label="Polls" hint="Vote on society decisions" href="/(resident)/polls" />
+        <Row icon="calendar" label="Book amenity" hint="Halls, courts and more" href="/(resident)/amenities" />
+        <Row icon="calendar-number" label="My bookings" hint="Your flat's amenity bookings" href="/(resident)/amenities/bookings" />
+        <Row icon="musical-notes" label="Events" hint="See what is planned and RSVP" href="/(resident)/events" />
+        <Row icon="document-text" label="Documents" hint="Bylaws, minutes and forms" href="/(resident)/documents" />
+        <Row icon="people-circle" label="Directory" hint="Neighbours who chose to be listed" href="/(resident)/directory" />
+        <Row icon="call" label="Emergency numbers" hint="Hospital, police, fire and more" href="/(resident)/emergency" tone="danger" />
       </Group>
 
       <Group title="This phone">

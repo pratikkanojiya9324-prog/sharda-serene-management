@@ -10,6 +10,7 @@ import { getActorName } from '@/lib/actor';
 import { reportError } from '@/lib/errors';
 import { loadFlatHelpers } from '@/lib/flatHelpers';
 import { formatTime } from '@/lib/format';
+import { formatIst } from '@/lib/ist';
 import { helperTypeIcon, helperTypeLabel, monthStartOf } from '@/lib/helpers';
 import { usePushStatus } from '@/lib/pushStatus';
 import { screenState } from '@/lib/screenState';
@@ -21,6 +22,7 @@ import { space, type, useTheme } from '@/theme/tokens';
 
 type Visit = Database['public']['Tables']['visits']['Row'];
 type InsideHelper = { id: string; since: string; name: string; type: HelperType };
+type NextEvent = { id: string; title: string; starts_at: string };
 
 export default function ResidentHome() {
   const router = useRouter();
@@ -33,19 +35,27 @@ export default function ResidentHome() {
   const [parcelCount, setParcelCount] = useState(0);
   const [pollsWaiting, setPollsWaiting] = useState(0);
   const [inside, setInside] = useState<InsideHelper[]>([]);
+  const [nextEvent, setNextEvent] = useState<NextEvent | null>(null);
   const flatId = flat?.id ?? null;
 
   const load = useCallback(async () => {
     setActor(await getActorName());
     if (!flatId) return;
-    const [v, parcels, helpers, polls, votes] = await Promise.all([
+    const [v, parcels, helpers, polls, votes, events] = await Promise.all([
       supabase.from('visits').select('*').eq('flat_id', flatId).order('created_at', { ascending: false }).limit(20),
       supabase.from('parcels').select('id', { count: 'exact', head: true }).eq('flat_id', flatId).eq('status', 'at_gate'),
       loadFlatHelpers(flatId, monthStartOf()),
       supabase.from('polls').select('id, closes_at, closed_at').is('closed_at', null).gt('closes_at', new Date().toISOString()),
       supabase.from('poll_votes').select('poll_id').eq('flat_id', flatId),
+      supabase
+        .from('events')
+        .select('id, title, starts_at')
+        .is('cancelled_at', null)
+        .gt('starts_at', new Date().toISOString())
+        .order('starts_at')
+        .limit(1),
     ]);
-    const err = v.error ?? parcels.error ?? polls.error ?? votes.error;
+    const err = v.error ?? parcels.error ?? polls.error ?? votes.error ?? events.error;
     if (err || helpers.error !== null) {
       setError(err ? reportError(err) : helpers.error);
       return false;
@@ -55,6 +65,7 @@ export default function ResidentHome() {
     setParcelCount(parcels.count ?? 0);
     const votedIds = new Set((votes.data ?? []).map((r) => r.poll_id));
     setPollsWaiting((polls.data ?? []).filter((p) => !votedIds.has(p.id)).length);
+    setNextEvent(events.data?.[0] ?? null);
     setInside(
       helpers.helpers
         .filter((h) => h.active)
@@ -120,11 +131,7 @@ export default function ResidentHome() {
           <QuickAction icon="ticket" label="Guest pass" onPress={() => router.push('/(resident)/passes')} />
           <QuickAction icon="timer" label="Expecting" onPress={() => router.push('/(resident)/expecting')} />
           <QuickAction icon="people" label="Daily help" onPress={() => router.push('/(resident)/daily-help')} />
-          <QuickAction
-            icon="construct"
-            label="Complaint"
-            onPress={() => router.push('/(resident)/complaints/new')}
-          />
+          <QuickAction icon="calendar" label="Book amenity" onPress={() => router.push('/(resident)/amenities')} />
         </Card>
 
         <FlatSwitcher />
@@ -166,6 +173,23 @@ export default function ResidentHome() {
                 <Text style={[type.heading, { color: colors.text, flex: 1 }]}>
                   Polls waiting for your vote ({pollsWaiting})
                 </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+              </Card>
+            ) : null}
+
+            {nextEvent ? (
+              <Card
+                onPress={() => router.push({ pathname: '/(resident)/events/[id]', params: { id: nextEvent.id } })}
+                accessibilityLabel={`Upcoming event, ${nextEvent.title}, ${formatIst(nextEvent.starts_at)}`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                <IconBadge icon="calendar" tone="brand" />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[type.overline, { color: colors.textSubtle }]}>UPCOMING EVENT</Text>
+                  <Text style={[type.heading, { color: colors.text }]} numberOfLines={2}>
+                    {nextEvent.title}
+                  </Text>
+                  <Text style={[type.caption, { color: colors.textMuted }]}>{formatIst(nextEvent.starts_at)}</Text>
+                </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
               </Card>
             ) : null}

@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Database } from '@society-gate/shared';
-import { useCallback, useState } from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Linking, Pressable, Switch, Text, View } from 'react-native';
 
 import { ErrorState, Loading, NoFlatState, useFocusLoad } from '@/components/resident';
 import { getActorName } from '@/lib/actor';
@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { Avatar, Banner, Card, EmptyState, Header, Pill, Screen } from '@/theme/components';
 import { space, type, useTheme } from '@/theme/tokens';
 
-type Member = Pick<Database['public']['Tables']['family_members']['Row'], 'id' | 'name' | 'phone' | 'relation'>;
+type Member = Pick<Database['public']['Tables']['family_members']['Row'], 'id' | 'name' | 'phone' | 'relation' | 'in_directory' | 'show_phone'>;
 
 /** Read-only list of the flat's family members (the society office manages it). */
 export default function FamilyScreen() {
@@ -22,13 +22,16 @@ export default function FamilyScreen() {
   const [members, setMembers] = useState<Member[]>([]);
   const [actor, setActor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   const load = useCallback(async () => {
     setActor(await getActorName());
     if (!flatId) return;
     const { data, error: err } = await supabase
       .from('family_members')
-      .select('id, name, phone, relation')
+      .select('id, name, phone, relation, in_directory, show_phone')
       .eq('flat_id', flatId)
       .order('created_at');
     if (err) {
@@ -38,6 +41,25 @@ export default function FamilyScreen() {
     setError(null);
     setMembers(data ?? []);
   }, [flatId]);
+  async function setVisibility(m: Member, inDirectory: boolean, showPhone: boolean) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSavingId(m.id);
+    setSaveError(null);
+    try {
+      const { error: err } = await supabase.rpc('set_directory_visibility', {
+        p_member_id: m.id,
+        p_in_directory: inDirectory,
+        p_show_phone: showPhone,
+      });
+      if (err) return setSaveError(reportError(err));
+      setMembers((cur) => cur.map((x) => (x.id === m.id ? { ...x, in_directory: inDirectory, show_phone: showPhone } : x)));
+    } finally {
+      setSavingId(null);
+      inFlight.current = false;
+    }
+  }
+
   const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!flatId);
   const state = screenState({ loaded, error: error ?? loadFailure, needsFlat: true, flatLoading, hasFlat: !!flat });
   return (
@@ -49,6 +71,7 @@ export default function FamilyScreen() {
       />
       <FlatSwitcher />
       {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
+      {saveError ? <Banner text={saveError} /> : null}
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (
@@ -93,9 +116,35 @@ export default function FamilyScreen() {
       <View style={{ flexDirection: 'row', gap: space.sm, paddingHorizontal: space.xs }}>
         <Ionicons name="information-circle-outline" size={18} color={colors.textSubtle} />
         <Text style={[type.caption, { color: colors.textMuted, flex: 1 }]}>
-          The society office keeps this list. Guards use these numbers to call your flat about visitors.
+          The society office keeps this list. Guards use these numbers to call your flat about visitors. Neighbours only see members you switch on for the directory.
         </Text>
       </View>
     </Screen>
+  );
+}
+
+function ToggleRow({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+      <Text style={[type.body, { color: colors.text, flex: 1 }]}>{label}</Text>
+      <Switch
+        value={value}
+        disabled={disabled}
+        onValueChange={onChange}
+        accessibilityLabel={label}
+        trackColor={{ true: colors.primary, false: colors.border }}
+      />
+    </View>
   );
 }

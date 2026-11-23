@@ -1,7 +1,6 @@
 import {
   closesAtForDays,
   closesLabel,
-  formatIst,
   parseOptions,
   parseResults,
   pollIsOpen,
@@ -94,12 +93,6 @@ describe('closesAtForDays', () => {
   it('uses the IST date, not the UTC date', () => {
     // 2026-11-23 20:00Z is already 01:30 IST on the 24th
     expect(closesAtForDays(1, new Date('2026-11-23T20:00:00Z')).toISOString()).toBe('2026-11-25T15:30:00.000Z');
-  });
-});
-
-describe('formatIst', () => {
-  it('formats like Sat 30 Nov, 9:00 PM', () => {
-    expect(formatIst('2026-11-28T15:30:00Z')).toBe('Sat 28 Nov, 9:00 PM');
   });
 });
 
