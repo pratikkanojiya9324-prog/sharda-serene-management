@@ -7,14 +7,20 @@ type DetailPath =
   | '/(resident)/bills/[id]'
   | '/(admin)/complaints/[id]';
 
-export type NotificationTarget = { pathname: DetailPath; params: { id: string } } | '/(resident)/history' | null;
+export type NotificationTarget =
+  | { pathname: DetailPath; params: { id: string } }
+  | '/(resident)/history'
+  | '/(resident)/daily-help'
+  | '/(resident)/parcels'
+  | null;
 
-/** Round 1 pushes carry `{ type, id }`; visitor pushes carry `{ type, visitId }`. */
+/** Round 1 pushes (and visit_auto_approved, whose id is the visit) carry `{ type, id }`; visitor pushes carry `{ type, visitId }`. */
 const RESIDENT_BY_ID = new Map<unknown, DetailPath>([
   ['notice_posted', '/(resident)/notices/[id]'],
   ['complaint_updated', '/(resident)/complaints/[id]'],
   ['bill_created', '/(resident)/bills/[id]'],
   ['bill_paid', '/(resident)/bills/[id]'],
+  ['visit_auto_approved', '/(resident)/request/[id]'],
 ]);
 
 /** Pushes that go to the society's admins. */
@@ -41,6 +47,8 @@ export function notificationTarget(data: unknown, roles: Role[]): NotificationTa
     return { pathname: '/(resident)/request/[id]', params: { id: visitId } };
   }
   if (type === 'pass_used') return '/(resident)/history';
+  if (type === 'helper_in' || type === 'helper_out') return '/(resident)/daily-help';
+  if (type === 'parcel_logged' || type === 'parcel_collected') return '/(resident)/parcels';
   const pathname = RESIDENT_BY_ID.get(type);
   if (pathname && hasId) return { pathname, params: { id: id as string } };
   return null;

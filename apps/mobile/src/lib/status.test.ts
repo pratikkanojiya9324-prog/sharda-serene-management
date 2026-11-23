@@ -3,6 +3,7 @@ import {
   complaintCategory,
   complaintStatus,
   COMPLAINT_CATEGORIES,
+  parcelStatus,
   visitPill,
   visitStatus,
 } from './status';
@@ -75,5 +76,13 @@ describe('visitStatus', () => {
     ['expired', 'Expired', 'neutral'],
   ] as const)('%s -> %s (%s)', (s, label, tone) => {
     expect(visitStatus(s)).toMatchObject({ label, tone });
+  });
+});
+
+describe('parcelStatus', () => {
+  it('labels returned parcels by status', () => {
+    expect(parcelStatus('returned').label).toBe('Returned to courier');
+    expect(parcelStatus('at_gate').label).toBe('At the gate');
+    expect(parcelStatus('collected').label).toBe('Collected');
   });
 });

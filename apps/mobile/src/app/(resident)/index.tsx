@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { Database } from '@society-gate/shared';
+import type { Database, HelperType } from '@society-gate/shared';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
@@ -8,7 +8,9 @@ import { ErrorState, IconBadge, Loading, NoFlatState, SectionTitle, useFocusLoad
 import { VisitRow } from '@/components/VisitRow';
 import { getActorName } from '@/lib/actor';
 import { reportError } from '@/lib/errors';
+import { loadFlatHelpers } from '@/lib/flatHelpers';
 import { formatTime } from '@/lib/format';
+import { helperTypeIcon, helperTypeLabel, monthStartOf } from '@/lib/helpers';
 import { usePushStatus } from '@/lib/pushStatus';
 import { screenState } from '@/lib/screenState';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
@@ -18,6 +20,7 @@ import { Banner, Button, Card, EmptyState, Header, Screen, type IconName } from 
 import { space, type, useTheme } from '@/theme/tokens';
 
 type Visit = Database['public']['Tables']['visits']['Row'];
+type InsideHelper = { id: string; since: string; name: string; type: HelperType };
 
 export default function ResidentHome() {
   const router = useRouter();
@@ -27,23 +30,34 @@ export default function ResidentHome() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [actor, setActor] = useState<string | null>(null);
+  const [parcelCount, setParcelCount] = useState(0);
+  const [inside, setInside] = useState<InsideHelper[]>([]);
   const flatId = flat?.id ?? null;
 
   const load = useCallback(async () => {
     setActor(await getActorName());
     if (!flatId) return;
-    const { data, error: err } = await supabase
-      .from('visits')
-      .select('*')
-      .eq('flat_id', flatId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    if (err) {
-      setError(reportError(err));
+    const [v, parcels, helpers] = await Promise.all([
+      supabase.from('visits').select('*').eq('flat_id', flatId).order('created_at', { ascending: false }).limit(20),
+      supabase.from('parcels').select('id', { count: 'exact', head: true }).eq('flat_id', flatId).eq('status', 'at_gate'),
+      loadFlatHelpers(flatId, monthStartOf()),
+    ]);
+    const err = v.error ?? parcels.error;
+    if (err || helpers.error !== null) {
+      setError(err ? reportError(err) : helpers.error);
       return false;
     }
     setError(null);
-    setVisits(data ?? []);
+    setVisits(v.data ?? []);
+    setParcelCount(parcels.count ?? 0);
+    setInside(
+      helpers.helpers
+        .filter((h) => h.active)
+        .flatMap((h) => {
+          const open = h.helper_attendance.find((r) => r.exit_at === null);
+          return open ? [{ id: h.id, since: open.entry_at, name: h.name, type: h.type }] : [];
+        }),
+    );
   }, [flatId]);
   const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!flatId);
   const state = screenState({ loaded, error: error ?? loadFailure, needsFlat: true, flatLoading: loading, hasFlat: !!flat });
@@ -99,7 +113,8 @@ export default function ResidentHome() {
       <View style={{ paddingHorizontal: space.xl, marginTop: -48, gap: space.md, paddingBottom: space.xxl }}>
         <Card style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: space.lg }}>
           <QuickAction icon="ticket" label="Guest pass" onPress={() => router.push('/(resident)/passes')} />
-          <QuickAction icon="time" label="History" onPress={() => router.push('/(resident)/history')} />
+          <QuickAction icon="timer" label="Expecting" onPress={() => router.push('/(resident)/expecting')} />
+          <QuickAction icon="people" label="Daily help" onPress={() => router.push('/(resident)/daily-help')} />
           <QuickAction
             icon="construct"
             label="Complaint"
@@ -124,6 +139,19 @@ export default function ResidentHome() {
           <Loading />
         ) : (
           <>
+            {parcelCount > 0 ? (
+              <Card
+                onPress={() => router.push('/(resident)/parcels')}
+                accessibilityLabel={`${parcelCount} parcel${parcelCount > 1 ? 's' : ''} at the gate`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                <IconBadge icon="cube" tone="accent" />
+                <Text style={[type.heading, { color: colors.text, flex: 1 }]}>
+                  {parcelCount} parcel{parcelCount > 1 ? 's' : ''} at the gate
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+              </Card>
+            ) : null}
+
             <SectionTitle title="Waiting for you" count={pending.length} />
             {pending.length ? (
               pending.map((v) => <PendingCard key={v.id} visit={v} onPress={() => open(v.id)} />)
@@ -135,6 +163,27 @@ export default function ResidentHome() {
                 </Text>
               </Card>
             )}
+
+            {inside.length ? (
+              <>
+                <SectionTitle title="Daily help inside now" count={inside.length} />
+                {inside.map((h) => (
+                  <Card
+                    key={h.id}
+                    onPress={() => router.push({ pathname: '/(resident)/daily-help/[id]', params: { id: h.id } })}
+                    accessibilityLabel={`${h.name}, inside since ${formatTime(h.since)}`}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                    <IconBadge icon={helperTypeIcon(h.type)} tone="success" />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[type.heading, { color: colors.text }]}>{h.name}</Text>
+                      <Text style={[type.caption, { color: colors.textMuted }]}>
+                        {helperTypeLabel(h.type)} · since {formatTime(h.since)}
+                      </Text>
+                    </View>
+                  </Card>
+                ))}
+              </>
+            ) : null}
 
             <SectionTitle
               title="Recent visitors"
@@ -163,7 +212,7 @@ function QuickAction({ icon, label, onPress }: { icon: IconName; label: string; 
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ alignItems: 'center', gap: space.sm, opacity: pressed ? 0.7 : 1, minWidth: 80 })}>
+      style={({ pressed }) => ({ alignItems: 'center', gap: space.sm, opacity: pressed ? 0.7 : 1, minWidth: 64 })}>
       <IconBadge icon={icon} size={52} />
       <Text style={[type.label, { color: colors.text }]}>{label}</Text>
     </Pressable>

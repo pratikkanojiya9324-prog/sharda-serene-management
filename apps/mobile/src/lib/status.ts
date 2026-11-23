@@ -57,14 +57,29 @@ export function visitStatus(status: Enums['visit_status']): StatusInfo {
   return VISIT_STATUS[status];
 }
 
-/** Pill for a visit row: the guard's own decision wins over the request status. */
+/** Pill for a visit row: the guard's own decision wins; an approved visit from an expected entry is "Auto-approved". */
 export function visitPill(visit: {
   status: Enums['visit_status'];
   manual_outcome: Enums['manual_outcome'] | null;
+  expected_entry_id?: string | null;
 }): StatusInfo {
   if (visit.manual_outcome === 'allowed') return { label: 'Let in by guard', tone: 'success', icon: 'shield-checkmark' };
   if (visit.manual_outcome === 'sent_back') return { label: 'Sent back', tone: 'danger', icon: 'arrow-undo' };
+  if (visit.expected_entry_id && visit.status === 'approved') {
+    return { label: 'Auto-approved', tone: 'success', icon: 'flash' };
+  }
   return VISIT_STATUS[visit.status];
+}
+
+const PARCEL_STATUS: Record<Enums['parcel_status'], StatusInfo> = {
+  at_gate: { label: 'At the gate', tone: 'accent', icon: 'cube' },
+  collected: { label: 'Collected', tone: 'success', icon: 'checkmark-circle' },
+  returned: { label: 'Returned to courier', tone: 'neutral', icon: 'arrow-undo' },
+};
+
+/** Label by status, not by collected_at (the DB fills it for returns too). */
+export function parcelStatus(status: Enums['parcel_status']): StatusInfo {
+  return PARCEL_STATUS[status];
 }
 
 export const VISIT_PURPOSE: Record<Enums['visit_purpose'], { label: string; icon: IconName }> = {

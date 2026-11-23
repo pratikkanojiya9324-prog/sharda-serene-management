@@ -70,4 +70,24 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ type: 'visit_request' }, ['resident'])).toBeNull();
     expect(notificationTarget(null, ['resident'])).toBeNull();
   });
+
+  it.each(['helper_in', 'helper_out'])('opens daily help for %s', (type) => {
+    expect(notificationTarget({ type, id: 'h1' }, ['resident'])).toBe('/(resident)/daily-help');
+  });
+
+  it.each(['parcel_logged', 'parcel_collected'])('opens parcels for %s', (type) => {
+    expect(notificationTarget({ type, id: 'p1' }, ['resident'])).toBe('/(resident)/parcels');
+  });
+
+  it('opens the request for visit_auto_approved (visit id in id)', () => {
+    expect(notificationTarget({ type: 'visit_auto_approved', id: 'v9' }, ['resident'])).toEqual({
+      pathname: '/(resident)/request/[id]',
+      params: { id: 'v9' },
+    });
+    expect(notificationTarget({ type: 'visit_auto_approved' }, ['resident'])).toBeNull();
+  });
+
+  it('ignores the new flat pushes for users without a resident role', () => {
+    expect(notificationTarget({ type: 'helper_in' }, ['guard'])).toBeNull();
+  });
 });

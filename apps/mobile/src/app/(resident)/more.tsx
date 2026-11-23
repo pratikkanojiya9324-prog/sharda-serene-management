@@ -40,6 +40,12 @@ export default function MoreScreen() {
         <Row icon="time" label="Visitor history" hint="Everyone who came to your flat" href="/(resident)/history" />
       </Group>
 
+      <Group title="Daily gate">
+        <Row icon="people" label="Daily help" hint="Maid, cook, driver: gate codes and attendance" href="/(resident)/daily-help" />
+        <Row icon="timer" label="Expected deliveries" hint="Let a delivery or cab in without asking" href="/(resident)/expecting" />
+        <Row icon="cube" label="Parcels" hint="Parcels held at the gate" href="/(resident)/parcels" />
+      </Group>
+
       <Group title="This phone">
         <Row
           icon="person-circle"
