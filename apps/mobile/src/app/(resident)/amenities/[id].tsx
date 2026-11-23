@@ -42,6 +42,8 @@ export default function AmenityScreen() {
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
+  const dateRef = useRef(date);
+  dateRef.current = date;
 
   const load = useCallback(async () => {
     if (!flatId) return;
@@ -56,6 +58,8 @@ export default function AmenityScreen() {
       return;
     }
     const s = await supabase.rpc('amenity_slots', { p_amenity_id: id, p_date: date, p_flat_id: flatId });
+    // The date chip changed while this was loading: a newer load owns the grid.
+    if (dateRef.current !== date) return;
     if (s.error) {
       setError(reportError(s.error));
       return false;

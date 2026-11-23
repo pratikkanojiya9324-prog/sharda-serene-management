@@ -81,7 +81,8 @@ export default function FamilyScreen() {
       ) : members.length ? (
         <>
           {members.map((m) => (
-            <Card key={m.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Card key={m.id}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
               <Avatar name={m.name} size={48} />
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={[type.heading, { color: colors.text }]}>{m.name}</Text>
@@ -107,6 +108,23 @@ export default function FamilyScreen() {
                   {({ pressed }) => <Ionicons name="call" size={20} color={pressed ? colors.onPrimary : colors.primary} />}
                 </Pressable>
               ) : null}
+              </View>
+              <View style={{ gap: space.xs }}>
+                <ToggleRow
+                  label="Show in directory"
+                  value={m.in_directory}
+                  disabled={savingId === m.id}
+                  onChange={(v) => setVisibility(m, v, v ? m.show_phone : false)}
+                />
+                {m.in_directory ? (
+                  <ToggleRow
+                    label="Show phone"
+                    value={m.show_phone && !!m.phone}
+                    disabled={savingId === m.id || !m.phone}
+                    onChange={(v) => setVisibility(m, true, v)}
+                  />
+                ) : null}
+              </View>
             </Card>
           ))}
         </>
