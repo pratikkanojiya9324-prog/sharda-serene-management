@@ -15,7 +15,7 @@ create table public.amenities (
   close_time time not null,
   slot_minutes int not null check (slot_minutes in (30, 60, 120, 240, 1440)),
   requires_approval boolean not null default false,
-  max_upcoming int not null default 2 check (max_upcoming between 1 and 50),
+  max_upcoming int not null default 2 check (max_upcoming between 1 and 10),
   fee_note text check (fee_note is null or char_length(fee_note) <= 200),
   active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -97,7 +97,7 @@ begin
          and extract(epoch from (p_close_time - p_open_time)) < p_slot_minutes * 60) then
     raise exception 'invalid_time';
   end if;
-  if v_max < 1 or v_max > 50 then
+  if v_max < 1 or v_max > 10 then
     raise exception 'invalid_limit';
   end if;
 

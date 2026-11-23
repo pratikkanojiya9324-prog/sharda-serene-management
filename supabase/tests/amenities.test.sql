@@ -1,6 +1,6 @@
 -- Migration 0021: amenity booking with slot grid and approvals.
 begin;
-select plan(64);
+select plan(66);
 
 insert into societies (id, name) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Society A'),
@@ -58,6 +58,8 @@ select throws_ok($$select upsert_amenity(null,'X',null,'22:00','06:00',60,false,
 select throws_ok($$select upsert_amenity(null,'X',null,'06:00','06:00',60,false,2,null,true)$$, 'P0001', 'invalid_time', 'open equals close');
 select throws_ok($$select upsert_amenity(null,'X',null,'06:00','06:30',60,false,2,null,true)$$, 'P0001', 'invalid_time', 'window shorter than a slot');
 select throws_ok($$select upsert_amenity(null,'X',null,'06:00','22:00',60,false,0,null,true)$$, 'P0001', 'invalid_limit', 'limit 0');
+select throws_ok($$select upsert_amenity(null,'X',null,'06:00','22:00',60,false,11,null,true)$$, 'P0001', 'invalid_limit', 'limit 11');
+select lives_ok($$select upsert_amenity(null,'Ten',null,'06:00','22:00',60,false,10,null,true)$$, 'limit 10 ok');
 select throws_ok($$select upsert_amenity(gen_random_uuid(),'X',null,'06:00','22:00',60,false,2,null,true)$$, 'P0001', 'not_authorized', 'unknown id');
 
 insert into am select 'court', id from upsert_amenity(null,' Court ',null,'06:00','22:00',60,false,2,null,true);
@@ -65,10 +67,10 @@ insert into am select 'hall', id from upsert_amenity(null,'Hall','Big','08:00','
 insert into am select 'pool', id from upsert_amenity(null,'Pool',null,'00:00','23:00',30,false,2,null,true);
 select is((select name from amenities where id = (select id from am where n = 'court')), 'Court', 'amenity created, name trimmed');
 select is((select fee_note from upsert_amenity((select id from am where n = 'court'),'Court',null,'06:00','22:00',60,false,2,'Rs 50',true)), 'Rs 50', 'amenity updated by id');
-select is((select count(*)::int from amenities), 3, 'admin sees amenities');
+select is((select count(*)::int from amenities), 4, 'admin sees amenities');
 
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e101","role":"authenticated"}', true);
-select is((select count(*)::int from amenities), 3, 'resident sees amenities');
+select is((select count(*)::int from amenities), 4, 'resident sees amenities');
 select throws_ok($$insert into amenities (society_id,name,open_time,close_time,slot_minutes) values ('aaaaaaaa-0000-0000-0000-000000000000','x','06:00','07:00',60)$$, '42501', null, 'direct insert revoked');
 
 -- ---------------------------------------------------------------- booking basics
