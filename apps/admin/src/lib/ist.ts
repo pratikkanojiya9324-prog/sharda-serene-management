@@ -9,8 +9,3 @@ export function istLocalToIso(value: string): string | null {
   const t = new Date(`${value}:00+05:30`);
   return Number.isNaN(t.getTime()) ? null : t.toISOString();
 }
-
-/** An instant as an IST `datetime-local` value ("2026-11-30T21:00"). */
-export function isoToIstLocal(iso: string): string {
-  return new Date(new Date(iso).getTime() + IST_OFFSET_MS).toISOString().slice(0, 16);
-}

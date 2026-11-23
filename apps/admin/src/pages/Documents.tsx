@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon';
 import { useToast } from '../components/Toast';
 import { Button, Card, ConfirmDialog, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Pill, Select, Table, td, th } from '../components/ui';
 import { friendlyError } from '../lib/errors';
-import { dateOnly } from '../lib/format';
+import { istDate } from '../lib/format';
 import { SOCIETY_ID, supabase } from '../lib/supabase';
 
 interface Doc {
@@ -122,7 +122,7 @@ export default function Documents() {
                     <Pill tone="teal">{categoryLabel(d.category)}</Pill>
                   </td>
                   <td className={`${td} text-slate-600`}>{d.file_kind === 'pdf' ? 'PDF' : 'Image'}</td>
-                  <td className={`${td} whitespace-nowrap text-slate-600`}>{dateOnly(d.created_at)}</td>
+                  <td className={`${td} whitespace-nowrap text-slate-600`}>{istDate(d.created_at)}</td>
                   <td className={`${td} text-right whitespace-nowrap`}>
                     <Button size="sm" variant="ghost" icon="paperclip" onClick={() => void open(d)}>
                       Open
@@ -197,7 +197,7 @@ function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: ()
     setBusy(true);
     setError(null);
     const kind = file.type === 'application/pdf' ? 'pdf' : 'image';
-    const ext = (file.name.split('.').pop() ?? (kind === 'pdf' ? 'pdf' : 'jpg')).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const ext = (file.name.includes('.') ? file.name.split('.').pop()! : kind === 'pdf' ? 'pdf' : 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
     const path = `${SOCIETY_ID}/${crypto.randomUUID()}.${ext || 'bin'}`;
     const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
     if (up.error) {
