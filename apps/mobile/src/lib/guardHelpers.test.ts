@@ -23,6 +23,9 @@ describe('helperAction', () => {
   it('blocks inactive helpers', () => {
     expect(helperAction({ active: false }, false)).toBe('blocked');
   });
+  it('lets a blocked helper who is still inside check out', () => {
+    expect(helperAction({ active: false }, true)).toBe('check_out');
+  });
   it('checks in when outside', () => {
     expect(helperAction({ active: true }, false)).toBe('check_in');
   });
