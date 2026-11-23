@@ -6,6 +6,7 @@ import { Image, Text, View } from 'react-native';
 
 import { CallResident } from '@/components/CallResident';
 import { IconBadge, InfoRow, Loading } from '@/components/resident';
+import { visitPill } from '@/lib/status';
 import { actorLabel } from '@/lib/attribution';
 import { flatLabels } from '@/lib/flatDirectory';
 import { formatTime } from '@/lib/format';
@@ -15,7 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useLiveVisit } from '@/lib/useLiveVisit';
 import { useVisitPhoto } from '@/lib/useVisitPhoto';
 import type { Visit } from '@/lib/visitMerge';
-import { Banner, Button, Card, Header, Screen, type IconName } from '@/theme/components';
+import { Banner, Button, Card, Header, Pill, Screen, type IconName } from '@/theme/components';
 import { radius, space, toneColors, type, useTheme, type Tone } from '@/theme/tokens';
 
 const BANNER: Record<VisitStatus, { text: string; tone: Tone; icon: IconName }> = {
@@ -179,6 +180,25 @@ export default function VisitScreen() {
           variant="secondary"
           loading={busy}
           onPress={() => run(() => supabase.rpc('mark_exit', { p_visit_id: visit.id }))}
+        />
+      ) : null}
+
+      {visit.expected_entry_id && visit.status === 'approved' && !visit.manual_outcome ? (
+        <View style={{ flexDirection: 'row' }}>
+          <Pill label={visitPill(visit).label} tone={visitPill(visit).tone} icon={visitPill(visit).icon} />
+        </View>
+      ) : null}
+
+      {visit.status === 'leave_at_gate' && visit.purpose === 'delivery' ? (
+        <Button
+          title="Log as parcel"
+          icon="cube-outline"
+          onPress={() =>
+            router.push({
+              pathname: '/(guard)/parcel',
+              params: { flatId: visit.flat_id, visitId: visit.id, courier: visit.name },
+            })
+          }
         />
       ) : null}
 

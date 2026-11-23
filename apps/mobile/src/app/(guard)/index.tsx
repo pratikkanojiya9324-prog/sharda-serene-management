@@ -2,13 +2,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { flatLabel, GUARD_TODAY_VISITS_SELECT } from '@society-gate/shared';
 import type { QueryData } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
+import { HelperAvatar } from '@/components/HelperAvatar';
 import { ErrorState, IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
 import { isSessionExpired, reportError } from '@/lib/errors';
 import { formatDate, formatTime } from '@/lib/format';
 import { guardErrorText } from '@/lib/guardErrors';
+import { helperFlatLabels, loadGuardHelpers, type GuardHelper } from '@/lib/guardHelperData';
+import { helperTypeLabel } from '@/lib/helpers';
 import { useGuardSociety } from '@/lib/guardSociety';
 import { screenState } from '@/lib/screenState';
 import { signOut } from '@/lib/signOut';
@@ -35,19 +38,35 @@ export default function GuardHome() {
   const { colors } = useTheme();
   const { societyId, error: societyError } = useGuardSociety();
   const [rows, setRows] = useState<Row[]>([]);
+  const [helpInside, setHelpInside] = useState<GuardHelper[]>([]);
+  const [parcelsWaiting, setParcelsWaiting] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyHelper, setBusyHelper] = useState<string | null>(null);
+  const inFlight = useRef(false);
 
   const load = useCallback(async () => {
     if (!societyId) return;
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const { data, error: err } = await todayVisits(societyId, startOfDay.toISOString());
+    const [visitsRes, helpersRes, parcelsRes] = await Promise.all([
+      todayVisits(societyId, startOfDay.toISOString()),
+      loadGuardHelpers(societyId, true),
+      supabase
+        .from('parcels')
+        .select('id', { count: 'exact', head: true })
+        .eq('society_id', societyId)
+        .eq('status', 'at_gate'),
+    ]);
+    const err = visitsRes.error ?? helpersRes.error ?? parcelsRes.error;
     if (err) {
       setError(isSessionExpired(err) ? reportError(err) : guardErrorText(err.message));
       return false;
     }
     setError(null);
-    setRows(data ?? []);
+    setRows(visitsRes.data ?? []);
+    setHelpInside(helpersRes.data);
+    setParcelsWaiting(parcelsRes.count ?? 0);
   }, [societyId]);
   const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!societyId);
   const state = screenState({ loaded, error: error ?? loadFailure });
@@ -63,10 +82,39 @@ export default function GuardHome() {
         () => load(),
       )
       .subscribe();
+    const gateChannel = supabase
+      .channel(`gate-${societyId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'helper_attendance', filter: `society_id=eq.${societyId}` },
+        () => load(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'parcels', filter: `society_id=eq.${societyId}` },
+        () => load(),
+      )
+      .subscribe();
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(gateChannel);
     };
   }, [societyId, load]);
+
+  async function checkOut(h: GuardHelper) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setActionError(null);
+    setBusyHelper(h.id);
+    try {
+      const { error: err } = await supabase.rpc('helper_check_out', { p_helper_id: h.id });
+      if (err) setActionError(isSessionExpired(err) ? reportError(err) : guardErrorText(err.message));
+      await load();
+    } finally {
+      setBusyHelper(null);
+      inFlight.current = false;
+    }
+  }
 
   const waiting = rows.filter((r) => r.status === 'pending' && !r.manual_outcome).length;
   const inside = rows.filter((r) => r.status === 'approved' || r.manual_outcome === 'allowed').length;
@@ -93,12 +141,49 @@ export default function GuardHome() {
         </View>
 
         <View style={{ flexDirection: 'row', gap: space.md }}>
+          <ActionTile icon="people" label="Daily help" onPress={() => router.push('/(guard)/daily-help')} />
+          <ActionTile icon="cube" label="Parcel" onPress={() => router.push('/(guard)/parcel')} />
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: space.md }}>
           <Stat label="Waiting" value={waiting} tone={waiting ? colors.warning : colors.textMuted} />
           <Stat label="Approved" value={inside} tone={colors.success} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: space.md }}>
+          <Stat label="Help inside" value={helpInside.length} tone={helpInside.length ? colors.success : colors.textMuted} />
+          <Stat
+            label="Parcels waiting"
+            value={parcelsWaiting}
+            tone={parcelsWaiting ? colors.warning : colors.textMuted}
+            onPress={() => router.push('/(guard)/parcels')}
+          />
         </View>
 
         {societyError ? <Banner text={societyError} /> : null}
         {error && state === 'ready' ? <Banner text={error} /> : null}
+
+        {actionError ? <Banner text={actionError} /> : null}
+        {state === 'ready' && helpInside.length ? (
+          <>
+            <SectionTitle title="Help inside now" count={helpInside.length} />
+            {helpInside.map((h) => (
+              <Card key={h.id}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                  <HelperAvatar photoPath={h.photo_path} type={h.type} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[type.heading, { color: colors.text }]} numberOfLines={1}>
+                      {h.name}
+                    </Text>
+                    <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={1}>
+                      {helperTypeLabel(h.type)} · {helperFlatLabels(h)}
+                    </Text>
+                  </View>
+                  <Button title="Check out" variant="secondary" loading={busyHelper === h.id} onPress={() => checkOut(h)} />
+                </View>
+              </Card>
+            ))}
+          </>
+        ) : null}
 
         <SectionTitle title="Today's visitors" />
         {state === 'error' ? (
@@ -171,10 +256,10 @@ function ActionTile({
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Stat({ label, value, tone, onPress }: { label: string; value: number; tone: string; onPress?: () => void }) {
   const { colors } = useTheme();
   return (
-    <Card style={{ flex: 1, gap: 2, paddingVertical: space.md }}>
+    <Card onPress={onPress} accessibilityLabel={`${label}: ${value}`} style={{ flex: 1, gap: 2, paddingVertical: space.md }}>
       <Text style={[type.title, { color: tone }]}>{value}</Text>
       <Text style={[type.caption, { color: colors.textMuted }]}>{label}</Text>
     </Card>
