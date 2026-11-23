@@ -1,3 +1,5 @@
+import { Alert } from 'react-native';
+
 const ERROR_TEXT: Record<string, string> = {
   already_responded: 'This request was already answered',
   visit_expired: 'This request expired — the guard will call you',
@@ -16,10 +18,65 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_status: 'Choose a status',
   invalid_payment_mode: 'Choose how the bill was paid',
   already_paid: 'This bill is already marked paid',
+  // daily help, expected entries, parcels
+  invalid_name: 'Enter a name',
+  helper_already_linked: 'This person is already added to your flat',
+  helper_inactive: 'This person has been blocked by the society office',
+  already_inside: 'Already checked in',
+  not_inside: 'Not checked in yet',
+  invalid_hours: 'Choose how long',
+  invalid_purpose: 'Choose what you are expecting',
+  invalid_company: 'Company name is too long',
+  already_cancelled: 'Already cancelled',
+  invalid_courier: 'Enter the courier name',
+  already_collected: 'This parcel was already handed over',
+  invalid_type: 'Choose a type',
+  invalid_active: 'Something went wrong, try again',
+  code_generation_failed: "Couldn't create a code, try again",
   'Network request failed': 'No internet connection, try again',
+  'Failed to fetch': 'No internet connection, try again',
 };
 
 /** Maps an RPC error message (`error.message`) to resident-facing text. */
 export function friendlyError(code: string): string {
   return Object.hasOwn(ERROR_TEXT, code) ? ERROR_TEXT[code] : 'Something went wrong, try again';
+}
+
+/** True when the code has its own friendly text (so callers can fall back to something else). */
+export function hasFriendlyError(code: string): boolean {
+  return Object.hasOwn(ERROR_TEXT, code);
+}
+
+/** The session is gone (expired JWT / revoked refresh token): the user must log in again. */
+export function isSessionExpired(e: { message?: string; code?: string } | null): boolean {
+  if (!e) return false;
+  if (e.code === 'PGRST301') return true;
+  const m = e.message ?? '';
+  return m.includes('JWT expired') || m.includes('Invalid Refresh Token') || m.includes('refresh_token_not_found');
+}
+
+// Several requests fail together when the login expires: alert and sign out once.
+let handlingExpiry = false;
+
+/**
+ * Turns any Supabase error into user-facing text. An expired login additionally
+ * shows a one-time alert and signs out (the root layout then routes to login).
+ */
+export function reportError(e: { message?: string; code?: string } | null): string {
+  if (isSessionExpired(e)) {
+    if (!handlingExpiry) {
+      handlingExpiry = true;
+      Alert.alert('Login expired', 'Please log in again.');
+      // Lazy: signOut pulls in the Supabase client, which pure text mapping must not need.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { signOut } = require('./signOut') as typeof import('./signOut');
+      signOut()
+        .catch((err) => console.warn('[reportError] sign-out failed', err))
+        .finally(() => {
+          handlingExpiry = false;
+        });
+    }
+    return 'Please log in again';
+  }
+  return friendlyError(e?.message ?? '');
 }

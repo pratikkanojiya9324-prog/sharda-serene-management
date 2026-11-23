@@ -1,3 +1,5 @@
+import { friendlyError, hasFriendlyError } from './errors';
+
 const GUARD_ERROR_TEXT: Record<string, string> = {
   not_authorized: 'You are not allowed to do that. Ask your admin to check your guard access.',
   not_allowed_in: 'This visitor has not been approved to enter.',
@@ -7,7 +9,11 @@ const GUARD_ERROR_TEXT: Record<string, string> = {
   'Failed to fetch': 'No internet connection. Check the network and try again.',
 };
 
+const GENERIC = 'Something went wrong. Try again.';
+
 /** Maps an RPC / network error message to guard-facing text (never a raw code). */
 export function guardErrorText(message: string | null | undefined): string {
-  return (message && GUARD_ERROR_TEXT[message]) || 'Something went wrong. Try again.';
+  if (!message) return GENERIC;
+  if (Object.hasOwn(GUARD_ERROR_TEXT, message)) return GUARD_ERROR_TEXT[message];
+  return hasFriendlyError(message) ? friendlyError(message) : GENERIC;
 }

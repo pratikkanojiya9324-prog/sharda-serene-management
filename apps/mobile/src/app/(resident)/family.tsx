@@ -3,10 +3,11 @@ import type { Database } from '@society-gate/shared';
 import { useCallback, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
-import { Loading, useFocusLoad } from '@/components/resident';
+import { ErrorState, Loading, NoFlatState, useFocusLoad } from '@/components/resident';
 import { getActorName } from '@/lib/actor';
-import { friendlyError } from '@/lib/errors';
-import { useResidentFlat } from '@/lib/residentFlat';
+import { reportError } from '@/lib/errors';
+import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
+import { screenState } from '@/lib/screenState';
 import { supabase } from '@/lib/supabase';
 import { Avatar, Banner, Card, EmptyState, Header, Pill, Screen } from '@/theme/components';
 import { space, type, useTheme } from '@/theme/tokens';
@@ -16,7 +17,7 @@ type Member = Pick<Database['public']['Tables']['family_members']['Row'], 'id' |
 /** Read-only list of the flat's family members (the society office manages it). */
 export default function FamilyScreen() {
   const { colors } = useTheme();
-  const { flat } = useResidentFlat();
+  const { flat, loading: flatLoading, error: flatError, reload } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const [members, setMembers] = useState<Member[]>([]);
   const [actor, setActor] = useState<string | null>(null);
@@ -30,14 +31,15 @@ export default function FamilyScreen() {
       .select('id, name, phone, relation')
       .eq('flat_id', flatId)
       .order('created_at');
-    if (err) setError(friendlyError(err.message));
-    else {
-      setError(null);
-      setMembers(data ?? []);
+    if (err) {
+      setError(reportError(err));
+      return false;
     }
+    setError(null);
+    setMembers(data ?? []);
   }, [flatId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-
+  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header
@@ -45,8 +47,13 @@ export default function FamilyScreen() {
         title="Family"
         subtitle={members.length ? `${members.length} member${members.length > 1 ? 's' : ''} in this flat` : undefined}
       />
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      <FlatSwitcher />
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'no_flat' ? (
+        <NoFlatState message={flatError} onRetry={reload} />
+      ) : state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         <Loading />
       ) : members.length ? (
         <>

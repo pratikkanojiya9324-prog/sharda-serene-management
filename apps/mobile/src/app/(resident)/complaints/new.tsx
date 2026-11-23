@@ -8,7 +8,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 import { getActorName } from '@/lib/actor';
 import { actorLabel } from '@/lib/attribution';
 import { uploadComplaintPhoto } from '@/lib/complaintPhoto';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { useResidentFlat } from '@/lib/residentFlat';
 import { COMPLAINT_CATEGORIES } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
@@ -73,7 +73,14 @@ export default function NewComplaintScreen() {
         p_actor_name: (await getActorName()) ?? undefined,
       });
       if (err || !data) {
-        setError(friendlyError(err?.message ?? ''));
+        // Don't leave the uploaded photo behind; a retry uploads it again.
+        if (photoPath) {
+          await supabase.storage
+            .from('complaint-photos')
+            .remove([photoPath])
+            .catch((e: unknown) => console.warn('[complaint] could not remove the photo', e));
+        }
+        setError(reportError(err ?? { message: '' }));
         return;
       }
       router.replace({ pathname: '/(resident)/complaints/[id]', params: { id: data.id } });

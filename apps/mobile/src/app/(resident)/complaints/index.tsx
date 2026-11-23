@@ -4,11 +4,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Chips, IconBadge, Loading, useFocusLoad } from '@/components/resident';
+import { Chips, ErrorState, IconBadge, Loading, NoFlatState, useFocusLoad } from '@/components/resident';
 import { actorLabel } from '@/lib/attribution';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { timeAgo } from '@/lib/format';
-import { useResidentFlat } from '@/lib/residentFlat';
+import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
+import { screenState } from '@/lib/screenState';
 import { complaintCategory, complaintStatus } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
 import { Banner, Button, Card, EmptyState, Header, Pill, Screen } from '@/theme/components';
@@ -19,7 +20,7 @@ type Filter = 'all' | Complaint['status'];
 
 export default function ComplaintsScreen() {
   const router = useRouter();
-  const { flat } = useResidentFlat();
+  const { flat, loading: flatLoading, error: flatError, reload } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -33,14 +34,15 @@ export default function ComplaintsScreen() {
       .eq('flat_id', flatId)
       .order('created_at', { ascending: false })
       .limit(100);
-    if (err) setError(friendlyError(err.message));
-    else {
-      setError(null);
-      setComplaints(data ?? []);
+    if (err) {
+      setError(reportError(err));
+      return false;
     }
+    setError(null);
+    setComplaints(data ?? []);
   }, [flatId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-
+  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
   const count = (s: Complaint['status']) => complaints.filter((c) => c.status === s).length;
   const shown = filter === 'all' ? complaints : complaints.filter((c) => c.status === filter);
   const raise = () => router.push('/(resident)/complaints/new');
@@ -48,9 +50,14 @@ export default function ComplaintsScreen() {
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline={flat?.label} title="Complaints" subtitle="Raise an issue and follow its progress" />
-      <Button title="Raise a complaint" icon="add-circle" onPress={raise} />
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      <FlatSwitcher />
+      <Button title="Raise a complaint" icon="add-circle" onPress={raise} disabled={!flat} />
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'no_flat' ? (
+        <NoFlatState message={flatError} onRetry={reload} />
+      ) : state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         <Loading />
       ) : complaints.length ? (
         <>

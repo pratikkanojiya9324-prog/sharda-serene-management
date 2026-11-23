@@ -4,11 +4,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from 'react-native';
 
-import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { ErrorState, IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
 import { useAdminSociety } from '@/lib/adminSociety';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { timeAgo } from '@/lib/format';
 import { sortNotices } from '@/lib/notices';
+import { screenState } from '@/lib/screenState';
 import { supabase } from '@/lib/supabase';
 import { Banner, Card, EmptyState, Header, Pill, Screen, type IconName } from '@/theme/components';
 import { radius, shadow, space, type, useTheme } from '@/theme/tokens';
@@ -32,22 +33,27 @@ export default function AdminNoticesScreen() {
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(200);
-    if (err) setError(friendlyError(err.message));
-    else {
-      setError(null);
-      setNotices(sortNotices(data ?? []));
+    if (err) {
+      setError(reportError(err));
+      return false;
     }
+    setError(null);
+    setNotices(sortNotices(data ?? []));
   }, [societyId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error });
 
   async function togglePin(n: Notice) {
     if (busyId) return;
     setBusyId(n.id);
-    const { data, error: err } = await supabase.rpc('set_notice_pinned', { p_id: n.id, p_pinned: !n.pinned });
-    setBusyId(null);
-    if (err || !data) return setError(friendlyError(err?.message ?? ''));
-    setError(null);
-    setNotices((cur) => sortNotices(cur.map((x) => (x.id === data.id ? data : x))));
+    try {
+      const { data, error: err } = await supabase.rpc('set_notice_pinned', { p_id: n.id, p_pinned: !n.pinned });
+      if (err || !data) return setError(reportError(err ?? { message: '' }));
+      setError(null);
+      setNotices((cur) => sortNotices(cur.map((x) => (x.id === data.id ? data : x))));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function confirmDelete(n: Notice) {
@@ -60,11 +66,14 @@ export default function AdminNoticesScreen() {
   async function remove(n: Notice) {
     if (busyId) return;
     setBusyId(n.id);
-    const { error: err } = await supabase.rpc('delete_notice', { p_id: n.id });
-    setBusyId(null);
-    if (err) return setError(friendlyError(err.message));
-    setError(null);
-    setNotices((cur) => cur.filter((x) => x.id !== n.id));
+    try {
+      const { error: err } = await supabase.rpc('delete_notice', { p_id: n.id });
+      if (err) return setError(reportError(err));
+      setError(null);
+      setNotices((cur) => cur.filter((x) => x.id !== n.id));
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function openAttachment(n: Notice) {
@@ -105,8 +114,10 @@ export default function AdminNoticesScreen() {
         }
       />
       {societyError ? <Banner text={societyError} /> : null}
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         societyError ? null : <Loading />
       ) : notices.length ? (
         <>

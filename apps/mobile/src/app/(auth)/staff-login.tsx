@@ -23,9 +23,12 @@ export default function StaffLogin() {
     setError(null);
     setBusy(true);
     // On success the root layout's auth listener routes to the guard/admin home.
-    const message = await signInStaff(username, password, SOCIETY_ID);
-    setBusy(false);
-    if (message) setError(message);
+    try {
+      const message = await signInStaff(username, password, SOCIETY_ID);
+      if (message) setError(message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

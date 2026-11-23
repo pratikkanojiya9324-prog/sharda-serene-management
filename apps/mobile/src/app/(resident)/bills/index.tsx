@@ -5,10 +5,11 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
-import { friendlyError } from '@/lib/errors';
+import { ErrorState, IconBadge, Loading, NoFlatState, SectionTitle, useFocusLoad } from '@/components/resident';
+import { reportError } from '@/lib/errors';
 import { formatDate, formatPeriod, formatRupees } from '@/lib/format';
-import { useResidentFlat } from '@/lib/residentFlat';
+import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
+import { screenState } from '@/lib/screenState';
 import { billStatusPill } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
 import { Banner, Card, EmptyState, Header, Pill, Screen } from '@/theme/components';
@@ -22,7 +23,7 @@ const ALL_CLEAR = ['#22C55E', '#15803D'] as const;
 export default function BillsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { flat } = useResidentFlat();
+  const { flat, loading: flatLoading, error: flatError, reload } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const [bills, setBills] = useState<Bill[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +36,15 @@ export default function BillsScreen() {
       .eq('flat_id', flatId)
       .order('period', { ascending: false })
       .limit(36);
-    if (err) setError(friendlyError(err.message));
-    else {
-      setError(null);
-      setBills(data ?? []);
+    if (err) {
+      setError(reportError(err));
+      return false;
     }
+    setError(null);
+    setBills(data ?? []);
   }, [flatId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-
+  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
   const today = new Date();
   const unpaid = bills.filter((b) => b.status === 'unpaid');
   const due = unpaid.reduce((sum, b) => sum + Number(b.amount), 0);
@@ -51,8 +53,13 @@ export default function BillsScreen() {
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline={flat?.label} title="Bills" subtitle="Maintenance bills and receipts" />
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      <FlatSwitcher />
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'no_flat' ? (
+        <NoFlatState message={flatError} onRetry={reload} />
+      ) : state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         <Loading />
       ) : bills.length ? (
         <>

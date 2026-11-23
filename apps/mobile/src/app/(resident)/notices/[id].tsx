@@ -95,13 +95,16 @@ function NoticePdf({ path }: { path: string }) {
   async function open() {
     setBusy(true);
     setError(null);
-    const { data, error: err } = await supabase.storage.from('notices').createSignedUrl(path, 3600);
-    setBusy(false);
-    if (err || !data?.signedUrl) return setError('Could not open the PDF, try again');
     try {
-      await Linking.openURL(data.signedUrl);
-    } catch {
-      setError('No app on this phone can open PDFs');
+      const { data, error: err } = await supabase.storage.from('notices').createSignedUrl(path, 3600);
+      if (err || !data?.signedUrl) return setError('Could not open the PDF, try again');
+      try {
+        await Linking.openURL(data.signedUrl);
+      } catch {
+        setError('No app on this phone can open PDFs');
+      }
+    } finally {
+      setBusy(false);
     }
   }
 

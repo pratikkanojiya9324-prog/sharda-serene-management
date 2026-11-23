@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { radius, space, type, useTheme } from '@/theme/tokens';
 
+import { reportError } from './errors';
 import { supabase } from './supabase';
 
 /** A flat the signed-in account belongs to. `label` is like "B1-A-101". */
@@ -60,7 +61,7 @@ export function ResidentFlatProvider({ children }: { children: ReactNode }) {
         .eq('profile_id', uid)
         .order('created_at');
       if (!active) return;
-      if (err) setError(err.message);
+      if (err) setError(reportError(err));
       else {
         const rows = (data ?? []).filter((r) => r.flats);
         const mapped = rows.map((r) => {

@@ -3,7 +3,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
-import type { IconName } from '@/theme/components';
+import { signOut } from '@/lib/signOut';
+import { Button, EmptyState, type IconName } from '@/theme/components';
 import { radius, space, toneColors, type, useTheme, type Tone } from '@/theme/tokens';
 
 // Small building blocks shared by the resident screens (on top of the theme
@@ -106,13 +107,46 @@ export function Loading() {
   );
 }
 
+/** Full-screen retry state for a list whose first load failed. */
+export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <EmptyState
+      icon="cloud-offline-outline"
+      tone="warning"
+      title="Couldn't load this"
+      message={message}
+      action={<Button title="Try again" icon="refresh" onPress={onRetry} />}
+    />
+  );
+}
+
+/** Shown when the signed-in account is not linked to any flat. */
+export function NoFlatState({ message, onRetry }: { message?: string | null; onRetry: () => void }) {
+  return (
+    <EmptyState
+      icon="home-outline"
+      tone="warning"
+      title="No flat linked"
+      message={message ?? 'This account is not linked to a flat yet. Ask the society office.'}
+      action={
+        <View style={{ gap: space.sm }}>
+          <Button title="Try again" icon="refresh" onPress={onRetry} />
+          <Button title="Log out" icon="log-out-outline" variant="ghost" onPress={() => signOut()} />
+        </View>
+      }
+    />
+  );
+}
+
 /**
  * Runs `load` whenever the screen gains focus and exposes pull-to-refresh
- * state. `loaded` turns true after the first load finishes (success or not).
+ * state. `loaded` turns true once a load succeeds: a `load` that resolves to
+ * `false` reports a failure (it has set its own error), so the screen stays
+ * out of `loaded` and shows its retry state instead of an empty list.
  * Pass `ready = false` while an input is missing (e.g. the flat is still
  * loading) so the screen keeps its spinner instead of an empty state.
  */
-export function useFocusLoad(load: () => Promise<void>, ready = true) {
+export function useFocusLoad(load: () => Promise<void | boolean>, ready = true) {
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -120,9 +154,11 @@ export function useFocusLoad(load: () => Promise<void>, ready = true) {
     useCallback(() => {
       if (!ready) return;
       let active = true;
-      load().finally(() => {
-        if (active) setLoaded(true);
-      });
+      load()
+        .then((ok) => {
+          if (active && ok !== false) setLoaded(true);
+        })
+        .catch((e) => console.warn('[useFocusLoad] load threw', e));
       return () => {
         active = false;
       };

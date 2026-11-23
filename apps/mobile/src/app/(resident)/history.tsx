@@ -2,10 +2,11 @@ import type { Database } from '@society-gate/shared';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { Loading, useFocusLoad } from '@/components/resident';
+import { ErrorState, Loading, NoFlatState, useFocusLoad } from '@/components/resident';
 import { VisitRow } from '@/components/VisitRow';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
+import { screenState } from '@/lib/screenState';
 import { supabase } from '@/lib/supabase';
 import { Banner, Button, EmptyState, Header, Screen } from '@/theme/components';
 
@@ -14,7 +15,7 @@ const PAGE = 30;
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { flat } = useResidentFlat();
+  const { flat, loading: flatLoading, error: flatError, reload } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const [visits, setVisits] = useState<Visit[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -30,7 +31,10 @@ export default function HistoryScreen() {
         .eq('flat_id', flatId)
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE - 1);
-      if (err) return setError(friendlyError(err.message));
+      if (err) {
+        setError(reportError(err));
+        return false;
+      }
       setError(null);
       const rows = data ?? [];
       setVisits((cur) => (offset === 0 ? rows : [...cur, ...rows]));
@@ -40,19 +44,27 @@ export default function HistoryScreen() {
   );
   const firstPage = useCallback(() => fetchPage(0), [fetchPage]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(firstPage, !!flatId);
+  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
 
   async function more() {
     setLoadingMore(true);
-    await fetchPage(visits.length);
-    setLoadingMore(false);
+    try {
+      await fetchPage(visits.length);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   return (
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
       <Header title="Visitor history" subtitle={flat?.label} onBack={() => router.back()} />
       <FlatSwitcher />
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'no_flat' ? (
+        <NoFlatState message={flatError} onRetry={reload} />
+      ) : state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         <Loading />
       ) : visits.length ? (
         <>

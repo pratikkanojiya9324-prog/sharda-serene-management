@@ -4,12 +4,13 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Chips, IconBadge, Loading, useFocusLoad } from '@/components/resident';
+import { Chips, ErrorState, IconBadge, Loading, useFocusLoad } from '@/components/resident';
 import { useAdminSociety } from '@/lib/adminSociety';
 import { actorLabel } from '@/lib/attribution';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { flatLabels, loadFlatDirectory } from '@/lib/flatDirectory';
 import { timeAgo } from '@/lib/format';
+import { screenState } from '@/lib/screenState';
 import { complaintCategory, complaintStatus } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
 import { Banner, Card, EmptyState, Header, Pill, Screen } from '@/theme/components';
@@ -42,12 +43,16 @@ export default function AdminComplaintsScreen() {
       loadFlatDirectory(societyId),
     ]);
     const err = c.error ?? flats.error;
-    if (err) return setError(friendlyError(err.message));
+    if (err) {
+      setError(reportError(err));
+      return false;
+    }
     setError(null);
     setComplaints(c.data ?? []);
     setLabels(flatLabels(flats.data));
   }, [societyId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error });
 
   const count = (s: Status) => complaints.filter((c) => c.status === s).length;
   const shown = filter === 'all' ? complaints : complaints.filter((c) => c.status === filter);
@@ -62,8 +67,10 @@ export default function AdminComplaintsScreen() {
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline={societyName ?? 'Admin'} title="Complaints" subtitle="Update residents as work progresses" />
       {societyError ? <Banner text={societyError} /> : null}
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         societyError ? null : <Loading />
       ) : (
         <>

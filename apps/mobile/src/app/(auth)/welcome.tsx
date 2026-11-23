@@ -47,9 +47,12 @@ export default function Welcome() {
     setError(null);
     setBusy(true);
     // On success the root layout's auth listener takes over and routes onwards.
-    const message = await signInFlat(flat, password);
-    setBusy(false);
-    if (message) setError(message);
+    try {
+      const message = await signInFlat(flat, password);
+      if (message) setError(message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   const societyName = directory?.status === 'ok' ? directory.societyName : null;

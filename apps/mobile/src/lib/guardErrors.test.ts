@@ -9,6 +9,11 @@ describe('guardErrorText', () => {
     ['Network request failed', 'No internet connection. Check the network and try again.'],
   ])('maps %s', (msg, text) => expect(guardErrorText(msg)).toBe(text));
 
+  it('falls back to the shared error copy for codes it has no entry for', () => {
+    expect(guardErrorText('already_inside')).toBe('Already checked in');
+    expect(guardErrorText('not_inside')).toBe('Not checked in yet');
+  });
+
   it('never shows a raw code', () => {
     expect(guardErrorText('PGRST116')).toBe('Something went wrong. Try again.');
     expect(guardErrorText(undefined)).toBe('Something went wrong. Try again.');

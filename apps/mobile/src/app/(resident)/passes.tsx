@@ -3,12 +3,13 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Share, Text, View } from 'react-native';
 
-import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { ErrorState, IconBadge, Loading, NoFlatState, SectionTitle, useFocusLoad } from '@/components/resident';
 import { getActorName } from '@/lib/actor';
 import { actorLabel } from '@/lib/attribution';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { formatDateTime } from '@/lib/format';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
+import { screenState } from '@/lib/screenState';
 import { supabase } from '@/lib/supabase';
 import { Banner, Button, Card, EmptyState, Header, Input, Screen } from '@/theme/components';
 import { radius, space, type, useTheme } from '@/theme/tokens';
@@ -39,13 +40,15 @@ function defaultRange(): { from: string; to: string } {
 export default function PassesScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { flat } = useResidentFlat();
+  const { flat, loading: flatLoading, error: flatError, reload } = useResidentFlat();
   const flatId = flat?.id ?? null;
   const [passes, setPasses] = useState<Pass[]>([]);
   const [guest, setGuest] = useState('');
   const [range, setRange] = useState(defaultRange);
   const [busy, setBusy] = useState(false);
+  // `error` belongs to the form and actions; `loadError` to the list of passes.
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!flatId) return;
@@ -56,10 +59,15 @@ export default function PassesScreen() {
       .is('revoked_at', null)
       .gt('valid_to', new Date().toISOString())
       .order('valid_from');
-    if (err) setError(friendlyError(err.message));
-    else setPasses(data ?? []);
+    if (err) {
+      setLoadError(reportError(err));
+      return false;
+    }
+    setLoadError(null);
+    setPasses(data ?? []);
   }, [flatId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
+  const state = screenState({ loaded, error: loadError, needsFlat: true, flatLoading, hasFlat: !!flat });
 
   async function create() {
     if (!flatId) return;
@@ -68,24 +76,28 @@ export default function PassesScreen() {
     const to = parseLocal(range.to);
     if (!from || !to) return setError('Use the format YYYY-MM-DD HH:mm');
     setBusy(true);
-    const { error: err } = await supabase.rpc('create_pass', {
-      p_flat_id: flatId,
-      p_guest_name: guest.trim(),
-      p_valid_from: from.toISOString(),
-      p_valid_to: to.toISOString(),
-      p_actor_name: (await getActorName()) ?? undefined,
-    });
-    setBusy(false);
-    if (err) return setError(friendlyError(err.message));
-    setGuest('');
-    setRange(defaultRange());
-    load();
+    try {
+      const { error: err } = await supabase.rpc('create_pass', {
+        p_flat_id: flatId,
+        p_guest_name: guest.trim(),
+        p_valid_from: from.toISOString(),
+        p_valid_to: to.toISOString(),
+        p_actor_name: (await getActorName()) ?? undefined,
+      });
+      // A failed submit keeps what was typed so it can be retried.
+      if (err) return setError(reportError(err));
+      setGuest('');
+      setRange(defaultRange());
+      load();
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function revoke(id: string) {
     setError(null);
     const { error: err } = await supabase.rpc('revoke_pass', { p_pass_id: id });
-    if (err) setError(friendlyError(err.message));
+    if (err) setError(reportError(err));
     else load();
   }
 
@@ -117,7 +129,11 @@ export default function PassesScreen() {
       </Card>
 
       <SectionTitle title="Active passes" count={passes.length || undefined} />
-      {!loaded ? (
+      {state === 'no_flat' ? (
+        <NoFlatState message={flatError} onRetry={reload} />
+      ) : state === 'error' ? (
+        <ErrorState message={loadError ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         <Loading />
       ) : passes.length ? (
         passes.map((p) => (

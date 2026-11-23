@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, Vie
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MAX_REFERENCE_LENGTH, validatePayment } from '@/lib/adminBills';
-import { friendlyError } from '@/lib/errors';
+import { friendlyError, reportError } from '@/lib/errors';
 import { formatPeriod, formatRupees } from '@/lib/format';
 import { PAYMENT_MODE_LABEL } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
@@ -39,12 +39,15 @@ export function MarkPaidSheet({
   labels,
   onClose,
   onPaid,
+  onAlreadyPaid,
 }: {
   bill: Bill | null;
   /** flat id → "B1-A-101" */
   labels: Map<string, string>;
   onClose: () => void;
   onPaid: (bill: Bill) => void;
+  /** The server says the bill was already paid: the parent should refresh its copy. */
+  onAlreadyPaid?: () => void;
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -80,7 +83,12 @@ export function MarkPaidSheet({
         p_mode: check.mode,
         ...(check.reference ? { p_reference: check.reference } : {}),
       });
-      if (err || !data) return setError(friendlyError(err?.message ?? ''));
+      if (err?.message === 'already_paid') {
+        setError(friendlyError(err.message));
+        onAlreadyPaid?.();
+        return;
+      }
+      if (err || !data) return setError(reportError(err ?? { message: '' }));
       onPaid(data);
     } finally {
       setBusy(false);

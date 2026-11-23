@@ -4,10 +4,11 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { IconBadge, Loading, useFocusLoad } from '@/components/resident';
-import { friendlyError } from '@/lib/errors';
+import { ErrorState, IconBadge, Loading, useFocusLoad } from '@/components/resident';
+import { reportError } from '@/lib/errors';
 import { timeAgo } from '@/lib/format';
 import { sortNotices } from '@/lib/notices';
+import { screenState } from '@/lib/screenState';
 import { supabase } from '@/lib/supabase';
 import { Banner, Card, EmptyState, Header, Pill, Screen } from '@/theme/components';
 import { space, type, useTheme } from '@/theme/tokens';
@@ -27,19 +28,23 @@ export default function NoticesScreen() {
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(100);
-    if (err) setError(friendlyError(err.message));
-    else {
-      setError(null);
-      setNotices(sortNotices(data ?? []));
+    if (err) {
+      setError(reportError(err));
+      return false;
     }
+    setError(null);
+    setNotices(sortNotices(data ?? []));
   }, []);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load);
+  const state = screenState({ loaded, error });
 
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline="Society" title="Notices" subtitle="Announcements from the society office" />
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         <Loading />
       ) : notices.length ? (
         notices.map((n) => (

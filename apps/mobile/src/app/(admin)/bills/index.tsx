@@ -5,13 +5,14 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { MarkPaidSheet } from '@/components/MarkPaidSheet';
-import { Chips, IconBadge, Loading, useFocusLoad } from '@/components/resident';
+import { Chips, ErrorState, IconBadge, Loading, useFocusLoad } from '@/components/resident';
 import { filterBills, monthsBetween, summarizeBills, type BillFilter } from '@/lib/adminBills';
 import { useAdminSociety } from '@/lib/adminSociety';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { fetchAll } from '@/lib/fetchAll';
 import { flatLabels, loadFlatDirectory } from '@/lib/flatDirectory';
 import { formatDate, formatPeriod, formatRupees } from '@/lib/format';
+import { screenState } from '@/lib/screenState';
 import { PAYMENT_MODE_LABEL, billStatusPill } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
 import { Banner, Button, Card, EmptyState, Header, Input, Pill, Screen, Select } from '@/theme/components';
@@ -45,7 +46,10 @@ export default function AdminBillsScreen() {
       loadFlatDirectory(societyId),
     ]);
     const err = newest.error ?? oldest.error ?? flats.error;
-    if (err) return setError(friendlyError(err.message));
+    if (err) {
+      setError(reportError(err));
+      return false;
+    }
     setLabels(flatLabels(flats.data));
     const hi = newest.data?.[0]?.period;
     const lo = oldest.data?.[0]?.period;
@@ -56,16 +60,21 @@ export default function AdminBillsScreen() {
     setMonth(target);
     if (!target) {
       setError(null);
-      return setBills([]);
+      setBills([]);
+      return;
     }
     const b = await fetchAll<Bill>((from, to) =>
       supabase.from('bills').select('*').eq('society_id', societyId).eq('period', target).order('id').range(from, to),
     );
-    if (b.error) return setError(friendlyError(b.error.message));
+    if (b.error) {
+      setError(reportError(b.error));
+      return false;
+    }
     setError(null);
     setBills(b.data);
   }, [societyId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error });
 
   async function selectMonth(next: string) {
     if (next === monthRef.current) return;
@@ -94,12 +103,21 @@ export default function AdminBillsScreen() {
     setPaying(null);
   }
 
+  // Someone else already recorded this payment: refresh so the row shows it.
+  function onAlreadyPaid() {
+    setPaying(null);
+    setReceipt('That bill was already marked paid. The list has been refreshed.');
+    void load();
+  }
+
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline={societyName ?? 'Admin'} title="Bills" subtitle="Collect maintenance and issue receipts" />
       {societyError ? <Banner text={societyError} /> : null}
-      {error ? <Banner text={error} /> : null}
-      {!loaded ? (
+      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {state === 'error' ? (
+        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+      ) : state === 'loading' ? (
         societyError ? null : <Loading />
       ) : !months.length ? (
         <EmptyState
@@ -207,7 +225,7 @@ export default function AdminBillsScreen() {
           )}
         </>
       )}
-      <MarkPaidSheet bill={paying} labels={labels} onClose={() => setPaying(null)} onPaid={onPaid} />
+      <MarkPaidSheet bill={paying} labels={labels} onClose={() => setPaying(null)} onPaid={onPaid} onAlreadyPaid={onAlreadyPaid} />
     </Screen>
   );
 }

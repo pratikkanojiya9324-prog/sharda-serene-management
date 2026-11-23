@@ -4,14 +4,14 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
-import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { ErrorState, IconBadge, Loading, NoFlatState, SectionTitle, useFocusLoad } from '@/components/resident';
 import { VisitRow } from '@/components/VisitRow';
 import { getActorName } from '@/lib/actor';
-import { friendlyError } from '@/lib/errors';
+import { reportError } from '@/lib/errors';
 import { formatTime } from '@/lib/format';
 import { usePushStatus } from '@/lib/pushStatus';
+import { screenState } from '@/lib/screenState';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
-import { signOut } from '@/lib/signOut';
 import { VISIT_PURPOSE } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
 import { Banner, Button, Card, EmptyState, Header, Screen, type IconName } from '@/theme/components';
@@ -38,13 +38,15 @@ export default function ResidentHome() {
       .eq('flat_id', flatId)
       .order('created_at', { ascending: false })
       .limit(20);
-    if (err) setError(friendlyError(err.message));
-    else {
-      setError(null);
-      setVisits(data ?? []);
+    if (err) {
+      setError(reportError(err));
+      return false;
     }
+    setError(null);
+    setVisits(data ?? []);
   }, [flatId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
+  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
+  const state = screenState({ loaded, error, needsFlat: true, flatLoading: loading, hasFlat: !!flat });
 
   // New / changed requests for this flat appear without pull-to-refresh.
   useEffect(() => {
@@ -69,21 +71,10 @@ export default function ResidentHome() {
     };
   }, [flatId]);
 
-  if (!loading && !flat) {
+  if (state === 'no_flat') {
     return (
       <Screen>
-        <EmptyState
-          icon="home-outline"
-          tone="warning"
-          title="No flat linked"
-          message={flatError ?? 'This account is not linked to a flat yet. Ask the society office.'}
-          action={
-            <View style={{ gap: space.sm }}>
-              <Button title="Try again" icon="refresh" onPress={reload} />
-              <Button title="Log out" icon="log-out-outline" variant="ghost" onPress={() => signOut()} />
-            </View>
-          }
-        />
+        <NoFlatState message={flatError} onRetry={reload} />
       </Screen>
     );
   }
@@ -125,9 +116,11 @@ export default function ResidentHome() {
           </Card>
         ) : null}
 
-        {error ? <Banner text={error} /> : null}
+        {error && state === 'ready' ? <Banner text={error} /> : null}
 
-        {!loaded || loading ? (
+        {state === 'error' ? (
+          <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        ) : state === 'loading' ? (
           <Loading />
         ) : (
           <>

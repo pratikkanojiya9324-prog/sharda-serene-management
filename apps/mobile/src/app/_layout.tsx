@@ -4,6 +4,9 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 
+import { CrashScreen } from '@/components/CrashScreen';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { reportError } from '@/lib/errors';
 import { notificationTarget } from '@/lib/notificationRoute';
 import { bootstrapSignedInUser } from '@/lib/postLogin';
 import { registerPushToken, type PushStatus } from '@/lib/push';
@@ -24,6 +27,11 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+/** Root error boundary: a render crash shows this instead of a blank screen. */
+export function ErrorBoundary({ retry }: { error: Error; retry: () => Promise<void> }) {
+  return <CrashScreen onRetry={() => void retry()} />;
+}
 
 // Survives remounts so one notification tap is only ever handled once.
 let handledNotificationId: string | null = null;
@@ -71,7 +79,7 @@ export default function RootLayout() {
       })
       .catch((e: unknown) => {
         bootstrappedFor.current = null;
-        setBootError(e instanceof Error ? e.message : 'Something went wrong');
+        setBootError(reportError(e instanceof Error ? e : null));
       });
   }, [ready, userId, router, bootAttempt]);
 
@@ -129,6 +137,7 @@ export default function RootLayout() {
           <Stack.Screen name="battery-guide" />
         </Stack.Protected>
       </Stack>
+      <OfflineBanner />
       {bootError && session ? (
         <Card style={{ position: 'absolute', bottom: space.xl, left: space.xl, right: space.xl }}>
           <Banner text={`Could not load your account: ${bootError}`} />

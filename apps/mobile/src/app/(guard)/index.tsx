@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
-import { IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { ErrorState, IconBadge, Loading, SectionTitle, useFocusLoad } from '@/components/resident';
+import { isSessionExpired, reportError } from '@/lib/errors';
 import { formatDate, formatTime } from '@/lib/format';
 import { guardErrorText } from '@/lib/guardErrors';
 import { useGuardSociety } from '@/lib/guardSociety';
+import { screenState } from '@/lib/screenState';
 import { signOut } from '@/lib/signOut';
 import { VISIT_PURPOSE, visitPill } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
@@ -40,13 +42,15 @@ export default function GuardHome() {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const { data, error: err } = await todayVisits(societyId, startOfDay.toISOString());
-    if (err) setError(guardErrorText(err.message));
-    else {
-      setError(null);
-      setRows(data ?? []);
+    if (err) {
+      setError(isSessionExpired(err) ? reportError(err) : guardErrorText(err.message));
+      return false;
     }
+    setError(null);
+    setRows(data ?? []);
   }, [societyId]);
   const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error });
 
   // Keep the list fresh while the screen is mounted.
   useEffect(() => {
@@ -94,10 +98,12 @@ export default function GuardHome() {
         </View>
 
         {societyError ? <Banner text={societyError} /> : null}
-        {error ? <Banner text={error} /> : null}
+        {error && state === 'ready' ? <Banner text={error} /> : null}
 
         <SectionTitle title="Today's visitors" />
-        {!loaded ? (
+        {state === 'error' ? (
+          <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        ) : state === 'loading' ? (
           societyError ? null : <Loading />
         ) : rows.length ? (
           rows.map((r) => (

@@ -18,6 +18,7 @@ const base: Visit = {
   pass_id: null,
   entry_at: null,
   exit_at: null,
+  expected_entry_id: null,
 };
 
 describe('mergeVisit', () => {
