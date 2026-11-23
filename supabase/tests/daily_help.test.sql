@@ -1,6 +1,6 @@
 -- Migration 0014: daily help (helpers, helper_flats, helper_attendance).
 begin;
-select plan(42);
+select plan(50);
 
 insert into societies (id, name) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Society A'),
@@ -129,6 +129,31 @@ select throws_ok($$select add_helper('aaaaaaaa-0000-0000-0000-0000000000f1', 'Su
   'P0001', 'helper_inactive', 'adding a deactivated helper by phone is helper_inactive');
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000ad01","role":"authenticated"}', true);
 select is((select active from set_helper_active((select id from helpers), true)), true, 'admin reactivates');
+
+
+-- ---------------------------------------------------------------- storage policies (behaviour)
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e102","role":"authenticated"}', true);
+select lives_ok($$insert into storage.objects (bucket_id, name) values ('helper-photos', 'aaaaaaaa-0000-0000-0000-000000000000/h1.jpg')$$,
+  'resident uploads helper photo into own society folder');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('helper-photos', 'bbbbbbbb-0000-0000-0000-000000000000/h2.jpg')$$,
+  '42501', null, 'resident cannot upload into another society folder');
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000a901","role":"authenticated"}', true);
+select lives_ok($$insert into storage.objects (bucket_id, name) values ('helper-photos', 'aaaaaaaa-0000-0000-0000-000000000000/h3.jpg')$$,
+  'guard uploads helper photo into own society folder');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('helper-photos', 'bbbbbbbb-0000-0000-0000-000000000000/h4.jpg')$$,
+  '42501', null, 'guard cannot upload into another society folder');
+reset role;
+update helpers set photo_path = 'aaaaaaaa-0000-0000-0000-000000000000/h1.jpg';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e102","role":"authenticated"}', true);
+select is((select count(*)::int from storage.objects where bucket_id = 'helper-photos' and name = 'aaaaaaaa-0000-0000-0000-000000000000/h1.jpg'), 1,
+  'linked resident reads the helper photo');
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e103","role":"authenticated"}', true);
+select is((select count(*)::int from storage.objects where bucket_id = 'helper-photos'), 0, 'unlinked resident cannot read helper photos');
+select set_config('request.jwt.claims', '{"sub":"bbbbbbbb-0000-0000-0000-00000000a901","role":"authenticated"}', true);
+select is((select count(*)::int from storage.objects where bucket_id = 'helper-photos'), 0, 'other society guard cannot read helper photos');
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000a901","role":"authenticated"}', true);
+select is((select count(*)::int from storage.objects where bucket_id = 'helper-photos'), 2, 'society guard reads helper photos');
 
 select * from finish();
 rollback;

@@ -118,7 +118,7 @@ using (
     when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       then public.has_role(((storage.foldername(name))[1])::uuid, 'guard')
         or public.has_role(((storage.foldername(name))[1])::uuid, 'admin')
-        or exists (select 1 from public.helpers h where h.photo_path = name)
+        or exists (select 1 from public.helpers h where h.photo_path = objects.name)
     else false
   end
 );
