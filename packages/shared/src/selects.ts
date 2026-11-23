@@ -47,3 +47,11 @@ export const PARCEL_SELECT =
 /** polls list (residents + admin): choices are never part of a poll row. */
 export const POLL_SELECT =
   'id, question, description, options, multi, max_choices, closes_at, closed_at, created_at, last_reminded_at' as const;
+
+/** amenity list (residents + admin). */
+export const AMENITY_SELECT =
+  'id, name, description, open_time, close_time, slot_minutes, requires_approval, max_upcoming, fee_note, active, created_at' as const;
+
+/** amenity bookings: booking with amenity name and the flat label. */
+export const BOOKING_SELECT =
+  'id, amenity_id, flat_id, start_at, end_at, status, booked_by_name, decided_at, reject_reason, created_at, amenities(name), flats(number, towers!flats_tower_id_fkey(building, name))' as const;

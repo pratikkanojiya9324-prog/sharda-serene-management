@@ -23,7 +23,65 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "bills": {
+            "amenities": {
+                  Row: {
+                    "active": boolean,"close_time": string,"created_at": string,"description": string | null,"fee_note": string | null,"id": string,"max_upcoming": number,"name": string,"open_time": string,"requires_approval": boolean,"slot_minutes": number,"society_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"close_time": string,"created_at"?: string,"description"?: string | null,"fee_note"?: string | null,"id"?: string,"max_upcoming"?: number,"name": string,"open_time": string,"requires_approval"?: boolean,"slot_minutes": number,"society_id": string
+                  }
+                  Update: {
+                    "active"?: boolean,"close_time"?: string,"created_at"?: string,"description"?: string | null,"fee_note"?: string | null,"id"?: string,"max_upcoming"?: number,"name"?: string,"open_time"?: string,"requires_approval"?: boolean,"slot_minutes"?: number,"society_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "amenities_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"amenity_bookings": {
+                  Row: {
+                    "amenity_id": string,"booked_by_name": string | null,"created_at": string,"decided_at": string | null,"decided_by": string | null,"end_at": string,"flat_id": string,"id": string,"reject_reason": string | null,"society_id": string,"start_at": string,"status": Database["public"]['Enums']["booking_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amenity_id": string,"booked_by_name"?: string | null,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"end_at": string,"flat_id": string,"id"?: string,"reject_reason"?: string | null,"society_id": string,"start_at": string,"status": Database["public"]['Enums']["booking_status"]
+                  }
+                  Update: {
+                    "amenity_id"?: string,"booked_by_name"?: string | null,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"end_at"?: string,"flat_id"?: string,"id"?: string,"reject_reason"?: string | null,"society_id"?: string,"start_at"?: string,"status"?: Database["public"]['Enums']["booking_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "amenity_bookings_amenity_id_fkey"
+      columns: ["amenity_id"]
+isOneToOne: false
+      referencedRelation: "amenities"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "amenity_bookings_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "amenity_bookings_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "amenity_bookings_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"bills": {
                   Row: {
                     "amount": number,"created_at": string,"due_date": string,"flat_id": string,"id": string,"paid_at": string | null,"payment_mode": Database["public"]['Enums']["payment_mode"] | null,"payment_reference": string | null,"period": string,"receipt_no": string | null,"society_id": string,"status": Database["public"]['Enums']["bill_status"]
                   }
@@ -766,9 +824,56 @@ isOneToOne: false
 "admin_society":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"amenity_slots":
+{ Args: { "p_amenity_id": string,"p_date": string,"p_flat_id"?: string }; Returns: {
+              "end_at": string,"start_at": string,"state": string
+            }[]
+                           },
+"book_amenity":
+{ Args: { "p_actor_name"?: string,"p_amenity_id": string,"p_flat_id": string,"p_start_at": string }; Returns: {
+              "amenity_id": string,
+"booked_by_name": string | null,
+"created_at": string,
+"decided_at": string | null,
+"decided_by": string | null,
+"end_at": string,
+"flat_id": string,
+"id": string,
+"reject_reason": string | null,
+"society_id": string,
+"start_at": string,
+"status": Database["public"]['Enums']["booking_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "amenity_bookings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "can_view_profile":
 { Args: { "p_profile": string }; Returns: boolean
                            },
+"cancel_booking":
+{ Args: { "p_booking_id": string }; Returns: {
+              "amenity_id": string,
+"booked_by_name": string | null,
+"created_at": string,
+"decided_at": string | null,
+"decided_by": string | null,
+"end_at": string,
+"flat_id": string,
+"id": string,
+"reject_reason": string | null,
+"society_id": string,
+"start_at": string,
+"status": Database["public"]['Enums']["booking_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "amenity_bookings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "cancel_expected_entry":
 { Args: { "p_id": string }; Returns: {
               "cancelled_at": string | null,
@@ -963,6 +1068,27 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"decide_booking":
+{ Args: { "p_approve": boolean,"p_booking_id": string,"p_reason"?: string }; Returns: {
+              "amenity_id": string,
+"booked_by_name": string | null,
+"created_at": string,
+"decided_at": string | null,
+"decided_by": string | null,
+"end_at": string,
+"flat_id": string,
+"id": string,
+"reject_reason": string | null,
+"society_id": string,
+"start_at": string,
+"status": Database["public"]['Enums']["booking_status"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "amenity_bookings"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1344,6 +1470,27 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"upsert_amenity":
+{ Args: { "p_active": boolean,"p_close_time": string,"p_description": string,"p_fee_note": string,"p_id": string,"p_max_upcoming": number,"p_name": string,"p_open_time": string,"p_requires_approval": boolean,"p_slot_minutes": number }; Returns: {
+              "active": boolean,
+"close_time": string,
+"created_at": string,
+"description": string | null,
+"fee_note": string | null,
+"id": string,
+"max_upcoming": number,
+"name": string,
+"open_time": string,
+"requires_approval": boolean,
+"slot_minutes": number,
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "amenities"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "use_pass":
 { Args: { "p_code": string }; Returns: {
               "created_at": string,
@@ -1379,7 +1526,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "bill_status": "unpaid"|"paid","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
+            "bill_status": "unpaid"|"paid","booking_status": "pending"|"confirmed"|"rejected"|"cancelled","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1499,7 +1646,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "bill_status": ["unpaid", "paid"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
+            "bill_status": ["unpaid", "paid"],"booking_status": ["pending", "confirmed", "rejected", "cancelled"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
           }
         }
 } as const
