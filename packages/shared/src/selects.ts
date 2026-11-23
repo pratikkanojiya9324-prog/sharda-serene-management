@@ -34,3 +34,11 @@ export const ADMIN_VISIT_LOG_SELECT =
 
 /** mobile guard flat picker + in-app admin flat labels: every flat with building + wing. */
 export const FLAT_DIRECTORY_SELECT = 'id, number, towers!flats_tower_id_fkey(building, name)' as const;
+
+/** mobile resident daily help: helper + attendance history (filter entry_at client-side for today/month). */
+export const HELPER_RESIDENT_SELECT =
+  'id, name, phone, type, photo_path, entry_code, active, helper_attendance(id, entry_at, exit_at)' as const;
+
+/** mobile guard daily help: helper + the flats served + attendance rows (open ones have exit_at null). */
+export const HELPER_GUARD_SELECT =
+  'id, name, phone, type, photo_path, entry_code, active, helper_flats(flat_id, flats(number, towers!flats_tower_id_fkey(building, name))), helper_attendance(id, entry_at, exit_at)' as const;
