@@ -171,6 +171,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"documents": {
+                  Row: {
+                    "category": Database["public"]['Enums']["doc_category"],"created_at": string,"created_by": string | null,"file_kind": string,"file_path": string,"id": string,"society_id": string,"title": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category"?: Database["public"]['Enums']["doc_category"],"created_at"?: string,"created_by"?: string | null,"file_kind": string,"file_path": string,"id"?: string,"society_id": string,"title": string
+                  }
+                  Update: {
+                    "category"?: Database["public"]['Enums']["doc_category"],"created_at"?: string,"created_by"?: string | null,"file_kind"?: string,"file_path"?: string,"id"?: string,"society_id"?: string,"title"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "documents_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "documents_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"emergency_contacts": {
                   Row: {
                     "created_at": string,"id": string,"name": string,"note": string | null,"phone": string,"society_id": string,"sort_order": number
@@ -185,6 +211,64 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "emergency_contacts_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"event_rsvps": {
+                  Row: {
+                    "by_name": string | null,"event_id": string,"flat_id": string,"heads": number,"response": Database["public"]['Enums']["rsvp_response"],"society_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "by_name"?: string | null,"event_id": string,"flat_id": string,"heads": number,"response": Database["public"]['Enums']["rsvp_response"],"society_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "by_name"?: string | null,"event_id"?: string,"flat_id"?: string,"heads"?: number,"response"?: Database["public"]['Enums']["rsvp_response"],"society_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "event_rsvps_event_id_fkey"
+      columns: ["event_id"]
+isOneToOne: false
+      referencedRelation: "events"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "event_rsvps_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "event_rsvps_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"events": {
+                  Row: {
+                    "cancelled_at": string | null,"created_at": string,"created_by": string | null,"description": string | null,"ends_at": string | null,"id": string,"place": string | null,"society_id": string,"starts_at": string,"title": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cancelled_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"place"?: string | null,"society_id": string,"starts_at": string,"title": string
+                  }
+                  Update: {
+                    "cancelled_at"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"ends_at"?: string | null,"id"?: string,"place"?: string | null,"society_id"?: string,"starts_at"?: string,"title"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "events_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "events_society_id_fkey"
       columns: ["society_id"]
 isOneToOne: false
       referencedRelation: "societies"
@@ -852,6 +936,23 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"add_document":
+{ Args: { "p_category": Database["public"]['Enums']["doc_category"],"p_file_kind": string,"p_file_path": string,"p_title": string }; Returns: {
+              "category": Database["public"]['Enums']["doc_category"],
+"created_at": string,
+"created_by": string | null,
+"file_kind": string,
+"file_path": string,
+"id": string,
+"society_id": string,
+"title": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "documents"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "add_helper":
 { Args: { "p_actor_name"?: string,"p_flat_id": string,"p_name": string,"p_phone": string,"p_photo_path"?: string,"p_type": Database["public"]['Enums']["helper_type"] }; Returns: {
               "active": boolean,
@@ -938,6 +1039,25 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "amenity_bookings"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"cancel_event":
+{ Args: { "p_id": string }; Returns: {
+              "cancelled_at": string | null,
+"created_at": string,
+"created_by": string | null,
+"description": string | null,
+"ends_at": string | null,
+"id": string,
+"place": string | null,
+"society_id": string,
+"starts_at": string,
+"title": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "events"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1049,6 +1169,25 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "complaints"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"create_event":
+{ Args: { "p_description": string,"p_ends_at": string,"p_place": string,"p_starts_at": string,"p_title": string }; Returns: {
+              "cancelled_at": string | null,
+"created_at": string,
+"created_by": string | null,
+"description": string | null,
+"ends_at": string | null,
+"id": string,
+"place": string | null,
+"society_id": string,
+"starts_at": string,
+"title": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "events"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1180,6 +1319,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"delete_document":
+{ Args: { "p_id": string }; Returns: string
+                           },
 "delete_emergency_contact":
 { Args: { "p_id": string }; Returns: undefined
                            },
@@ -1193,6 +1335,9 @@ isOneToOne: false
 { Args: Record<PropertyKey, never>; Returns: {
               "name": string
             }[]
+                           },
+"event_summary":
+{ Args: { "p_event_id": string }; Returns: Json
                            },
 "expire_stale_visits":
 { Args: Record<PropertyKey, never>; Returns: number
@@ -1530,6 +1675,22 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"rsvp_event":
+{ Args: { "p_actor_name"?: string,"p_event_id": string,"p_flat_id": string,"p_heads"?: number,"p_response": Database["public"]['Enums']["rsvp_response"] }; Returns: {
+              "by_name": string | null,
+"event_id": string,
+"flat_id": string,
+"heads": number,
+"response": Database["public"]['Enums']["rsvp_response"],
+"society_id": string,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "event_rsvps"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "set_complaint_status":
 { Args: { "p_complaint_id": string,"p_status": Database["public"]['Enums']["complaint_status"] }; Returns: {
               "category": Database["public"]['Enums']["complaint_category"],
@@ -1703,7 +1864,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "bill_status": "unpaid"|"paid","booking_status": "pending"|"confirmed"|"rejected"|"cancelled","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","sos_status": "open"|"acknowledged"|"resolved"|"cancelled","sos_type": "medical"|"fire"|"security"|"lift"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
+            "bill_status": "unpaid"|"paid","booking_status": "pending"|"confirmed"|"rejected"|"cancelled","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","doc_category": "bylaws"|"minutes"|"circular"|"form"|"other","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","rsvp_response": "going"|"maybe"|"no","sos_status": "open"|"acknowledged"|"resolved"|"cancelled","sos_type": "medical"|"fire"|"security"|"lift"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1823,7 +1984,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "bill_status": ["unpaid", "paid"],"booking_status": ["pending", "confirmed", "rejected", "cancelled"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"sos_status": ["open", "acknowledged", "resolved", "cancelled"],"sos_type": ["medical", "fire", "security", "lift", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
+            "bill_status": ["unpaid", "paid"],"booking_status": ["pending", "confirmed", "rejected", "cancelled"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"doc_category": ["bylaws", "minutes", "circular", "form", "other"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"rsvp_response": ["going", "maybe", "no"],"sos_status": ["open", "acknowledged", "resolved", "cancelled"],"sos_type": ["medical", "fire", "security", "lift", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
           }
         }
 } as const

@@ -43,3 +43,13 @@ export const SOS_TYPES: { value: SosType; label: string }[] = [
   { value: 'lift', label: 'Lift stuck' },
   { value: 'other', label: 'Other' },
 ];
+
+export type DocCategory = 'bylaws' | 'minutes' | 'circular' | 'form' | 'other';
+
+export const DOC_CATEGORIES: { value: DocCategory; label: string }[] = [
+  { value: 'bylaws', label: 'Bylaws' },
+  { value: 'minutes', label: 'AGM minutes' },
+  { value: 'circular', label: 'Circulars' },
+  { value: 'form', label: 'Forms' },
+  { value: 'other', label: 'Other' },
+];

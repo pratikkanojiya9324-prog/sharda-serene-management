@@ -62,3 +62,10 @@ export const SOS_SELECT =
 
 /** emergency contacts list (all members + admin). */
 export const EMERGENCY_CONTACT_SELECT = 'id, name, phone, note, sort_order, created_at' as const;
+
+/** events list (all members + admin). */
+export const EVENT_SELECT =
+  'id, title, description, place, starts_at, ends_at, created_at, cancelled_at' as const;
+
+/** society documents list (all members + admin). */
+export const DOCUMENT_SELECT = 'id, title, category, file_path, file_kind, created_at' as const;
