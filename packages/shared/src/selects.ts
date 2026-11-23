@@ -42,3 +42,7 @@ export const HELPER_RESIDENT_SELECT =
 /** mobile guard daily help: helper + the flats served + attendance rows (open ones have exit_at null). */
 export const HELPER_GUARD_SELECT =
   'id, name, phone, type, photo_path, entry_code, active, helper_flats(flat_id, flats(number, towers!flats_tower_id_fkey(building, name))), helper_attendance(id, entry_at, exit_at)' as const;
+
+/** mobile parcels (resident + guard): parcel with the flat label. */
+export const PARCEL_SELECT =
+  'id, created_at, flat_id, courier, note, photo_path, status, collected_at, collected_by_name, visit_id, flats(number, towers!flats_tower_id_fkey(building, name))' as const;

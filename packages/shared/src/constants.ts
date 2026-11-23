@@ -13,3 +13,16 @@ export const HELPER_TYPES: { value: HelperType; label: string }[] = [
   { value: 'tutor', label: 'Tutor' },
   { value: 'other', label: 'Other' },
 ];
+
+export type ExpectedPurpose = 'delivery' | 'cab' | 'service' | 'guest';
+
+export const EXPECTED_COMPANIES = [
+  'Swiggy', 'Zomato', 'Amazon', 'Flipkart', 'Blinkit', 'Zepto', 'Uber', 'Ola', 'Rapido', 'Other',
+] as const;
+
+export const COURIERS = [
+  'Amazon', 'Flipkart', 'Myntra', 'Meesho', 'Delhivery', 'Blue Dart', 'DTDC', 'India Post', 'Other',
+] as const;
+
+/** Allowed validity windows (hours) for an expected entry. */
+export const EXPECTED_HOURS = [1, 2, 4, 8] as const;

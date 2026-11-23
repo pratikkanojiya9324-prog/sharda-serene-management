@@ -113,6 +113,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"expected_entries": {
+                  Row: {
+                    "cancelled_at": string | null,"company": string | null,"created_at": string,"created_by": string | null,"created_by_name": string | null,"flat_id": string,"id": string,"purpose": Database["public"]['Enums']["visit_purpose"],"society_id": string,"used_count": number,"valid_from": string,"valid_to": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cancelled_at"?: string | null,"company"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_name"?: string | null,"flat_id": string,"id"?: string,"purpose": Database["public"]['Enums']["visit_purpose"],"society_id": string,"used_count"?: number,"valid_from"?: string,"valid_to": string
+                  }
+                  Update: {
+                    "cancelled_at"?: string | null,"company"?: string | null,"created_at"?: string,"created_by"?: string | null,"created_by_name"?: string | null,"flat_id"?: string,"id"?: string,"purpose"?: Database["public"]['Enums']["visit_purpose"],"society_id"?: string,"used_count"?: number,"valid_from"?: string,"valid_to"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "expected_entries_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "expected_entries_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "expected_entries_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"family_members": {
                   Row: {
                     "created_at": string,"flat_id": string,"id": string,"name": string,"phone": string | null,"relation": string | null,"society_id": string
@@ -383,6 +415,50 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"parcels": {
+                  Row: {
+                    "collected_at": string | null,"collected_by_name": string | null,"courier": string,"created_at": string,"flat_id": string,"handed_by": string | null,"id": string,"logged_by": string | null,"note": string | null,"photo_path": string | null,"society_id": string,"status": Database["public"]['Enums']["parcel_status"],"visit_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "collected_at"?: string | null,"collected_by_name"?: string | null,"courier": string,"created_at"?: string,"flat_id": string,"handed_by"?: string | null,"id"?: string,"logged_by"?: string | null,"note"?: string | null,"photo_path"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["parcel_status"],"visit_id"?: string | null
+                  }
+                  Update: {
+                    "collected_at"?: string | null,"collected_by_name"?: string | null,"courier"?: string,"created_at"?: string,"flat_id"?: string,"handed_by"?: string | null,"id"?: string,"logged_by"?: string | null,"note"?: string | null,"photo_path"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["parcel_status"],"visit_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "parcels_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "parcels_handed_by_fkey"
+      columns: ["handed_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "parcels_logged_by_fkey"
+      columns: ["logged_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "parcels_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "parcels_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"passes": {
                   Row: {
                     "code": string,"created_at": string,"created_by": string,"created_by_name": string | null,"flat_id": string,"guest_name": string,"id": string,"revoked_at": string | null,"society_id": string,"valid_from": string,"valid_to": string
@@ -511,14 +587,14 @@ isOneToOne: false
                   ]
                 },"visits": {
                   Row: {
-                    "created_at": string,"created_by": string,"entry_at": string | null,"exit_at": string | null,"flat_id": string,"id": string,"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id": string | null,"phone": string | null,"photo_path": string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at": string | null,"responded_by": string | null,"responded_by_name": string | null,"society_id": string,"status": Database["public"]['Enums']["visit_status"]
+                    "created_at": string,"created_by": string,"entry_at": string | null,"exit_at": string | null,"expected_entry_id": string | null,"flat_id": string,"id": string,"manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id": string | null,"phone": string | null,"photo_path": string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at": string | null,"responded_by": string | null,"responded_by_name": string | null,"society_id": string,"status": Database["public"]['Enums']["visit_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by": string,"entry_at"?: string | null,"exit_at"?: string | null,"flat_id": string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"responded_by_name"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["visit_status"]
+                    "created_at"?: string,"created_by": string,"entry_at"?: string | null,"exit_at"?: string | null,"expected_entry_id"?: string | null,"flat_id": string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name": string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose": Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"responded_by_name"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["visit_status"]
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string,"entry_at"?: string | null,"exit_at"?: string | null,"flat_id"?: string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name"?: string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose"?: Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"responded_by_name"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["visit_status"]
+                    "created_at"?: string,"created_by"?: string,"entry_at"?: string | null,"exit_at"?: string | null,"expected_entry_id"?: string | null,"flat_id"?: string,"id"?: string,"manual_outcome"?: Database["public"]['Enums']["manual_outcome"] | null,"name"?: string,"pass_id"?: string | null,"phone"?: string | null,"photo_path"?: string | null,"purpose"?: Database["public"]['Enums']["visit_purpose"],"responded_at"?: string | null,"responded_by"?: string | null,"responded_by_name"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["visit_status"]
                   }
                   Relationships: [
                     {
@@ -526,6 +602,12 @@ isOneToOne: false
       columns: ["created_by"]
 isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visits_expected_entry_id_fkey"
+      columns: ["expected_entry_id"]
+isOneToOne: false
+      referencedRelation: "expected_entries"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "visits_flat_id_fkey"
@@ -629,12 +711,55 @@ isOneToOne: false
 "can_view_profile":
 { Args: { "p_profile": string }; Returns: boolean
                            },
+"cancel_expected_entry":
+{ Args: { "p_id": string }; Returns: {
+              "cancelled_at": string | null,
+"company": string | null,
+"created_at": string,
+"created_by": string | null,
+"created_by_name": string | null,
+"flat_id": string,
+"id": string,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"society_id": string,
+"used_count": number,
+"valid_from": string,
+"valid_to": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "expected_entries"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "claim_invites":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
 "clean_actor_name":
 { Args: { "p_name": string }; Returns: string
                            },
+"collect_parcel":
+{ Args: { "p_collected_by_name": string,"p_parcel_id": string }; Returns: {
+              "collected_at": string | null,
+"collected_by_name": string | null,
+"courier": string,
+"created_at": string,
+"flat_id": string,
+"handed_by": string | null,
+"id": string,
+"logged_by": string | null,
+"note": string | null,
+"photo_path": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["parcel_status"],
+"visit_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "parcels"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "create_complaint":
 { Args: { "p_actor_name"?: string,"p_category": Database["public"]['Enums']["complaint_category"],"p_description": string,"p_flat_id": string,"p_photo_path"?: string }; Returns: {
               "category": Database["public"]['Enums']["complaint_category"],
@@ -652,6 +777,27 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "complaints"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"create_expected_entry":
+{ Args: { "p_actor_name"?: string,"p_company": string,"p_flat_id": string,"p_hours": number,"p_purpose": Database["public"]['Enums']["visit_purpose"] }; Returns: {
+              "cancelled_at": string | null,
+"company": string | null,
+"created_at": string,
+"created_by": string | null,
+"created_by_name": string | null,
+"flat_id": string,
+"id": string,
+"purpose": Database["public"]['Enums']["visit_purpose"],
+"society_id": string,
+"used_count": number,
+"valid_from": string,
+"valid_to": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "expected_entries"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -699,6 +845,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -780,6 +927,28 @@ isOneToOne: false
 "is_member":
 { Args: { "p_society": string }; Returns: boolean
                            },
+"log_parcel":
+{ Args: { "p_courier": string,"p_flat_id": string,"p_note": string,"p_photo_path": string,"p_visit_id"?: string }; Returns: {
+              "collected_at": string | null,
+"collected_by_name": string | null,
+"courier": string,
+"created_at": string,
+"flat_id": string,
+"handed_by": string | null,
+"id": string,
+"logged_by": string | null,
+"note": string | null,
+"photo_path": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["parcel_status"],
+"visit_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "parcels"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "login_directory":
 { Args: { "p_society_id": string }; Returns: {
               "building": string,"flat_id": string,"flat_number": string,"society_name": string,"wing": string
@@ -812,6 +981,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -838,6 +1008,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -867,6 +1038,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -899,6 +1071,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -916,6 +1089,28 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "visits"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"return_parcel":
+{ Args: { "p_parcel_id": string }; Returns: {
+              "collected_at": string | null,
+"collected_by_name": string | null,
+"courier": string,
+"created_at": string,
+"flat_id": string,
+"handed_by": string | null,
+"id": string,
+"logged_by": string | null,
+"note": string | null,
+"photo_path": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["parcel_status"],
+"visit_id": string | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "parcels"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1001,6 +1196,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -1027,6 +1223,7 @@ isOneToOne: false
 "created_by": string,
 "entry_at": string | null,
 "exit_at": string | null,
+"expected_entry_id": string | null,
 "flat_id": string,
 "id": string,
 "manual_outcome": Database["public"]['Enums']["manual_outcome"] | null,
@@ -1052,7 +1249,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "bill_status": "unpaid"|"paid","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","payment_mode": "cash"|"cheque"|"upi"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
+            "bill_status": "unpaid"|"paid","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1172,7 +1369,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "bill_status": ["unpaid", "paid"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"payment_mode": ["cash", "cheque", "upi", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
+            "bill_status": ["unpaid", "paid"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
           }
         }
 } as const
