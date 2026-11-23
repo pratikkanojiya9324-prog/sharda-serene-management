@@ -15,6 +15,8 @@ export type NotificationTarget =
   | '/(resident)/daily-help'
   | '/(resident)/parcels'
   | '/(resident)/amenities/bookings'
+  | '/(resident)/sos'
+  | '/'
   | null;
 
 /** Round 1 pushes (and visit_auto_approved, whose id is the visit) carry `{ type, id }`; visitor pushes carry `{ type, visitId }`. */
@@ -48,7 +50,11 @@ export function notificationTarget(data: unknown, roles: Role[]): NotificationTa
     if (pathname) return hasId ? { pathname, params: { id: id as string } } : null;
   }
 
+  // SOS alerts: the guard / admin home shows the live banner.
+  if (type === 'sos_raised') return roles.includes('admin') || roles.includes('guard') ? '/' : null;
+
   if (!roles.includes('resident')) return null;
+  if (type === 'sos_update') return '/(resident)/sos';
   if (type === 'visit_request' && typeof visitId === 'string' && visitId) {
     return { pathname: '/(resident)/request/[id]', params: { id: visitId } };
   }

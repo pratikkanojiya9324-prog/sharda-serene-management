@@ -115,4 +115,14 @@ describe('round 3 community pushes', () => {
   it('ignores them for staff-only users', () => {
     expect(notificationTarget({ type: 'booking_decided', id: 'k1' }, ['admin'])).toBeNull();
   });
+
+  it('opens the guard/admin home for sos_raised', () => {
+    expect(notificationTarget({ type: 'sos_raised', id: 's1' }, ['guard'])).toBe('/');
+    expect(notificationTarget({ type: 'sos_raised', id: 's1' }, ['admin'])).toBe('/');
+    expect(notificationTarget({ type: 'sos_raised', id: 's1' }, ['resident'])).toBeNull();
+  });
+  it('opens the SOS screen for sos_update', () => {
+    expect(notificationTarget({ type: 'sos_update', id: 's1' }, ['resident'])).toBe('/(resident)/sos');
+    expect(notificationTarget({ type: 'sos_update', id: 's1' }, ['guard'])).toBeNull();
+  });
 });

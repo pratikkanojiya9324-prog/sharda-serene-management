@@ -6,6 +6,8 @@ describe('guardErrorText', () => {
     ['not_allowed_in', 'This visitor has not been approved to enter.'],
     ['not_entered', 'This visitor has not entered yet.'],
     ['already_responded', 'The resident already responded.'],
+    ['sos_closed', 'This SOS is already closed'],
+    ['invalid_note', 'The note is too long (300 characters at most)'],
     ['Network request failed', 'No internet connection. Check the network and try again.'],
   ])('maps %s', (msg, text) => expect(guardErrorText(msg)).toBe(text));
 

@@ -11,6 +11,8 @@ describe('friendlyError', () => {
     ['already_responded', 'This request was already answered'],
     ['visit_expired', 'This request expired — the guard will call you'],
     ['not_authorized', "You don't have access to this"],
+    ['sos_closed', 'This SOS is already closed'],
+    ['invalid_note', 'The note is too long (300 characters at most)'],
     ['invalid_question', 'Enter the question'],
     ['invalid_options', 'Add 2 to 6 options'],
     ['invalid_choice', 'Choose an option'],

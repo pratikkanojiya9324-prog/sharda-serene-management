@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, Text, View } from 'react-native';
 
 import { ErrorState, IconBadge, Loading, NoFlatState, SectionTitle, useFocusLoad } from '@/components/resident';
+import { SosHoldButton, SosTypeSheet } from '@/components/SosHoldButton';
 import { VisitRow } from '@/components/VisitRow';
 import { getActorName } from '@/lib/actor';
 import { reportError } from '@/lib/errors';
@@ -12,6 +13,8 @@ import { loadFlatHelpers } from '@/lib/flatHelpers';
 import { formatTime } from '@/lib/format';
 import { formatIst } from '@/lib/ist';
 import { helperTypeIcon, helperTypeLabel, monthStartOf } from '@/lib/helpers';
+import { isActiveSos, sosStatusText, sosTypeLabel } from '@/lib/sos';
+import { useFlatSos } from '@/lib/useOpenSos';
 import { usePushStatus } from '@/lib/pushStatus';
 import { screenState } from '@/lib/screenState';
 import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
@@ -37,6 +40,8 @@ export default function ResidentHome() {
   const [inside, setInside] = useState<InsideHelper[]>([]);
   const [nextEvent, setNextEvent] = useState<NextEvent | null>(null);
   const flatId = flat?.id ?? null;
+  const { alert: sosAlert, error: sosError, refetch: refetchSos } = useFlatSos(flatId);
+  const [sosSheet, setSosSheet] = useState(false);
 
   const load = useCallback(async () => {
     setActor(await getActorName());
@@ -135,6 +140,44 @@ export default function ResidentHome() {
         </Card>
 
         <FlatSwitcher />
+
+        {isActiveSos(sosAlert) && sosAlert ? (
+          <Card
+            onPress={() => router.push('/(resident)/sos')}
+            accessibilityLabel="SOS active, tap to view"
+            style={{ backgroundColor: colors.danger, borderColor: colors.danger, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+            <Ionicons name="alert-circle" size={28} color="#FFFFFF" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[type.heading, { color: '#FFFFFF' }]}>SOS active — tap to view</Text>
+              <Text style={[type.caption, { color: '#FFFFFF' }]}>
+                {sosTypeLabel(sosAlert.type)} · {sosStatusText(sosAlert)}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+          </Card>
+        ) : (
+          <Card style={{ alignItems: 'center', gap: space.md }}>
+            <SosHoldButton onComplete={() => setSosSheet(true)} disabled={!flatId} />
+            {sosError ? (
+              <Pressable onPress={refetchSos} accessibilityRole="button">
+                <Text style={[type.caption, { color: colors.danger, textAlign: 'center' }]}>
+                  Couldn&apos;t check for an active SOS. {sosError} Tap to retry.
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => router.push('/(resident)/emergency')} accessibilityRole="button" hitSlop={8}>
+              <Text style={[type.label, { color: colors.primary }]}>Emergency numbers</Text>
+            </Pressable>
+          </Card>
+        )}
+        <SosTypeSheet
+          visible={sosSheet}
+          onClose={() => setSosSheet(false)}
+          onPick={(t) => {
+            setSosSheet(false);
+            router.push({ pathname: '/(resident)/sos', params: { type: t } });
+          }}
+        />
 
         {pushStatus && pushStatus !== 'ok' ? (
           <Card style={{ backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft }}>

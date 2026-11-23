@@ -1,7 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
+import { View } from 'react-native';
 
-import { AdminSocietyProvider } from '@/lib/adminSociety';
+import { SosBanner } from '@/components/SosBanner';
+import { AdminSocietyProvider, useAdminSociety } from '@/lib/adminSociety';
 import type { IconName } from '@/theme/components';
 import { useTheme } from '@/theme/tokens';
 
@@ -18,10 +20,17 @@ const HIDDEN = ['notices/new'];
 
 // In-app admin: Notices (post / pin / delete), Polls (a list → new / detail stack), Complaints (a list → detail
 // stack), Bills (by month, mark paid) and More.
+function AdminSosBanner() {
+  const { societyId } = useAdminSociety();
+  return <SosBanner societyId={societyId} />;
+}
+
 export default function AdminLayout() {
   const { colors } = useTheme();
   return (
     <AdminSocietyProvider>
+      <View style={{ flex: 1 }}>
+      <AdminSosBanner />
       <Tabs
         backBehavior="history"
         screenOptions={{
@@ -53,6 +62,7 @@ export default function AdminLayout() {
           />
         ))}
       </Tabs>
+      </View>
     </AdminSocietyProvider>
   );
 }
