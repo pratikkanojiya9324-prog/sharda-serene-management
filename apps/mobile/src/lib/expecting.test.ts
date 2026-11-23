@@ -15,6 +15,9 @@ describe('expectationLabel', () => {
     expect(expectationLabel(row({}))).toBe('Swiggy delivery · until 3:30 PM');
     expect(expectationLabel(row({ purpose: 'cab', company: 'Uber', valid_to: at(9, 5) }))).toBe('Uber cab · until 9:05 AM');
   });
+  it('shows a free-text company', () => {
+    expect(expectationLabel(row({ company: 'Dunzo' }))).toBe('Dunzo delivery · until 3:30 PM');
+  });
   it('falls back to the purpose alone without a company', () => {
     expect(expectationLabel(row({ company: null }))).toBe('Delivery · until 3:30 PM');
     expect(expectationLabel(row({ purpose: 'guest', company: '' }))).toBe('Guest · until 3:30 PM');

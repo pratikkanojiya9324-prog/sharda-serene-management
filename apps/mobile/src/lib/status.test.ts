@@ -65,6 +65,24 @@ describe('visitPill', () => {
     expect(visitPill({ status: 'expired', manual_outcome: 'sent_back' })).toMatchObject({ label: 'Sent back', tone: 'danger' });
     expect(visitPill({ status: 'approved', manual_outcome: null })).toEqual(visitStatus('approved'));
   });
+
+  it('marks an approved visit from an expected entry as auto-approved', () => {
+    expect(visitPill({ status: 'approved', manual_outcome: null, expected_entry_id: 'e1' })).toEqual({
+      label: 'Auto-approved',
+      tone: 'success',
+      icon: 'flash',
+    });
+  });
+
+  it('does not mark pending visits or visits without an expected entry as auto-approved', () => {
+    expect(visitPill({ status: 'pending', manual_outcome: null, expected_entry_id: 'e1' })).toEqual(visitStatus('pending'));
+    expect(visitPill({ status: 'approved', manual_outcome: null, expected_entry_id: null })).toEqual(visitStatus('approved'));
+  });
+
+  it('keeps the guard decision over auto-approval', () => {
+    expect(visitPill({ status: 'approved', manual_outcome: 'allowed', expected_entry_id: 'e1' })).toMatchObject({ label: 'Let in by guard' });
+    expect(visitPill({ status: 'approved', manual_outcome: 'sent_back', expected_entry_id: 'e1' })).toMatchObject({ label: 'Sent back' });
+  });
 });
 
 describe('visitStatus', () => {

@@ -11,7 +11,7 @@ import { FlatSwitcher, useResidentFlat } from '@/lib/residentFlat';
 import { screenState } from '@/lib/screenState';
 import { supabase } from '@/lib/supabase';
 import { VISIT_PURPOSE } from '@/lib/status';
-import { Banner, Button, Card, EmptyState, Header, Screen } from '@/theme/components';
+import { Banner, Button, Card, EmptyState, Header, Input, Screen } from '@/theme/components';
 import { space, type, useTheme } from '@/theme/tokens';
 
 type Expectation = {
@@ -32,6 +32,7 @@ export default function ExpectingScreen() {
   const [rows, setRows] = useState<Expectation[]>([]);
   const [purpose, setPurpose] = useState<ExpectedPurpose>('delivery');
   const [company, setCompany] = useState('');
+  const [otherName, setOtherName] = useState('');
   const [hours, setHours] = useState('2');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,14 +68,15 @@ export default function ExpectingScreen() {
       const { error: err } = await supabase.rpc('create_expected_entry', {
         p_flat_id: flatId,
         p_purpose: purpose,
-        // "Other" is just "no specific company".
-        p_company: company === 'Other' ? '' : company,
+        // "Other" sends the typed name (blank = no company).
+        p_company: company === 'Other' ? otherName.trim() : company,
         p_hours: Number(hours),
         p_actor_name: (await getActorName()) ?? undefined,
       });
       // A failed save keeps the choices so it can be retried.
       if (err) return setError(reportError(err));
       setCompany('');
+      setOtherName('');
       load().catch((e: unknown) => console.warn('[expecting] reload failed', e));
     } finally {
       setBusy(false);
@@ -109,6 +111,7 @@ export default function ExpectingScreen() {
           onChange={(p) => {
             setPurpose(p);
             setCompany('');
+            setOtherName('');
           }}
         />
         {companies.length ? (
@@ -119,6 +122,16 @@ export default function ExpectingScreen() {
               value={company}
               onChange={(c) => setCompany(c === company ? '' : c)}
             />
+            {company === 'Other' ? (
+              <Input
+                label="Company name (optional)"
+                icon="business-outline"
+                placeholder="e.g. Dunzo"
+                value={otherName}
+                onChangeText={setOtherName}
+                maxLength={40}
+              />
+            ) : null}
           </>
         ) : null}
         <Text style={[type.label, { color: colors.textMuted }]}>Valid for</Text>
