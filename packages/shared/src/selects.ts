@@ -43,3 +43,7 @@ export const HELPER_GUARD_SELECT =
 /** mobile parcels (resident + guard): parcel with the flat label. */
 export const PARCEL_SELECT =
   'id, created_at, flat_id, courier, note, photo_path, status, collected_at, collected_by_name, visit_id, flats(number, towers!flats_tower_id_fkey(building, name))' as const;
+
+/** polls list (residents + admin): choices are never part of a poll row. */
+export const POLL_SELECT =
+  'id, question, description, options, multi, max_choices, closes_at, closed_at, created_at, last_reminded_at' as const;

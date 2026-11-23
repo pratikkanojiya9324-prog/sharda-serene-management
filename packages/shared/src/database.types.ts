@@ -497,6 +497,64 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"poll_votes": {
+                  Row: {
+                    "flat_id": string,"option_ids": (string)[],"poll_id": string,"society_id": string,"voted_at": string,"voted_by_name": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "flat_id": string,"option_ids": (string)[],"poll_id": string,"society_id": string,"voted_at"?: string,"voted_by_name"?: string | null
+                  }
+                  Update: {
+                    "flat_id"?: string,"option_ids"?: (string)[],"poll_id"?: string,"society_id"?: string,"voted_at"?: string,"voted_by_name"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "poll_votes_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "poll_votes_poll_id_fkey"
+      columns: ["poll_id"]
+isOneToOne: false
+      referencedRelation: "polls"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "poll_votes_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"polls": {
+                  Row: {
+                    "closed_at": string | null,"closes_at": string,"created_at": string,"created_by": string | null,"description": string | null,"id": string,"last_reminded_at": string | null,"max_choices": number,"multi": boolean,"options": NonNullable<Json>,"question": string,"society_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "closed_at"?: string | null,"closes_at": string,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"last_reminded_at"?: string | null,"max_choices"?: number,"multi"?: boolean,"options": NonNullable<Json>,"question": string,"society_id": string
+                  }
+                  Update: {
+                    "closed_at"?: string | null,"closes_at"?: string,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"last_reminded_at"?: string | null,"max_choices"?: number,"multi"?: boolean,"options"?: NonNullable<Json>,"question"?: string,"society_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "polls_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "polls_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "created_at": string,"id": string,"name": string,"phone": string | null
@@ -738,6 +796,27 @@ isOneToOne: false
 "clean_actor_name":
 { Args: { "p_name": string }; Returns: string
                            },
+"close_poll":
+{ Args: { "p_poll_id": string }; Returns: {
+              "closed_at": string | null,
+"closes_at": string,
+"created_at": string,
+"created_by": string | null,
+"description": string | null,
+"id": string,
+"last_reminded_at": string | null,
+"max_choices": number,
+"multi": boolean,
+"options": NonNullable<Json>,
+"question": string,
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "polls"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "collect_parcel":
 { Args: { "p_collected_by_name": string,"p_parcel_id": string }; Returns: {
               "collected_at": string | null,
@@ -839,6 +918,27 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"create_poll":
+{ Args: { "p_closes_at": string,"p_description": string,"p_max_choices": number,"p_multi": boolean,"p_options": (string)[],"p_question": string }; Returns: {
+              "closed_at": string | null,
+"closes_at": string,
+"created_at": string,
+"created_by": string | null,
+"description": string | null,
+"id": string,
+"last_reminded_at": string | null,
+"max_choices": number,
+"multi": boolean,
+"options": NonNullable<Json>,
+"question": string,
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "polls"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "create_visit":
 { Args: { "p_flat_id": string,"p_name": string,"p_phone": string,"p_photo_path": string,"p_purpose": Database["public"]['Enums']["visit_purpose"] }; Returns: {
               "created_at": string,
@@ -868,6 +968,9 @@ isOneToOne: false
       } },
 "delete_notice":
 { Args: { "p_id": string }; Returns: undefined
+                           },
+"delete_poll":
+{ Args: { "p_poll_id": string }; Returns: undefined
                            },
 "expire_stale_visits":
 { Args: Record<PropertyKey, never>; Returns: number
@@ -1032,6 +1135,9 @@ isOneToOne: false
 "notify_post":
 { Args: { "p_old": Json,"p_record": Json,"p_table": string,"p_type": string }; Returns: undefined
                            },
+"poll_results":
+{ Args: { "p_flat_id"?: string,"p_poll_id": string }; Returns: Json
+                           },
 "record_manual_outcome":
 { Args: { "p_outcome": Database["public"]['Enums']["manual_outcome"],"p_visit_id": string }; Returns: {
               "created_at": string,
@@ -1062,6 +1168,27 @@ isOneToOne: false
 "register_push_token":
 { Args: { "p_platform": string,"p_token": string }; Returns: undefined
                            },
+"remind_poll":
+{ Args: { "p_poll_id": string }; Returns: {
+              "closed_at": string | null,
+"closes_at": string,
+"created_at": string,
+"created_by": string | null,
+"description": string | null,
+"id": string,
+"last_reminded_at": string | null,
+"max_choices": number,
+"multi": boolean,
+"options": NonNullable<Json>,
+"question": string,
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "polls"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "remove_helper_from_flat":
 { Args: { "p_flat_id": string,"p_helper_id": string }; Returns: undefined
                            },
@@ -1246,6 +1373,9 @@ isOneToOne: false
       } },
 "visit_has_app_users":
 { Args: { "p_flat_id": string }; Returns: boolean
+                           },
+"vote_poll":
+{ Args: { "p_actor_name"?: string,"p_flat_id": string,"p_option_ids": (string)[],"p_poll_id": string }; Returns: undefined
                            }
           }
           Enums: {

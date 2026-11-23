@@ -26,3 +26,7 @@ export const COURIERS = [
 
 /** Allowed validity windows (hours) for an expected entry. */
 export const EXPECTED_HOURS = [1, 2, 4, 8] as const;
+
+export const POLL_MIN_OPTIONS = 2;
+export const POLL_MAX_OPTIONS = 6;
+export const POLL_REMIND_HOURS = 6;
