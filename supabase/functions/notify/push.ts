@@ -6,6 +6,7 @@ export type VisitRow = {
   purpose: string;
   status: string;
   pass_id: string | null;
+  expected_entry_id?: string | null;
 };
 
 export type ExpoMessage = {
@@ -48,7 +49,12 @@ export type RoundType =
   | "complaint_created"
   | "complaint_updated"
   | "bill_created"
-  | "bill_paid";
+  | "bill_paid"
+  | "helper_in"
+  | "helper_out"
+  | "parcel_logged"
+  | "parcel_collected"
+  | "visit_auto_approved";
 
 export type RoundMessage = {
   to: string;
@@ -144,3 +150,46 @@ export const buildBillCreated = (b: BillRow, tokens: string[]) =>
 
 export const buildBillPaid = (b: BillRow, tokens: string[]) =>
   toMessages(tokens, "bill_paid", b.id, "Payment received", `Receipt ${b.receipt_no}`);
+
+// ---------------------------------------------------------------------------
+// Round 2: daily help, parcels, auto-approved visits
+// ---------------------------------------------------------------------------
+
+export type HelperRow = { name: string; type: string };
+export type ParcelRow = { id: string; courier: string; collected_by_name: string | null };
+
+const helperLabel = (h: HelperRow) => `${h.name} (${titleCase(h.type)})`;
+
+export const buildHelperIn = (attendanceId: string, h: HelperRow, tokens: string[]) =>
+  toMessages(tokens, "helper_in", attendanceId, "Daily help arrived", `${helperLabel(h)} has entered`);
+
+export const buildHelperOut = (attendanceId: string, h: HelperRow, tokens: string[]) =>
+  toMessages(tokens, "helper_out", attendanceId, "Daily help left", `${helperLabel(h)} has left`);
+
+export const buildParcelLogged = (p: ParcelRow, tokens: string[]) =>
+  toMessages(tokens, "parcel_logged", p.id, "Parcel at the gate", `${p.courier} parcel is waiting at the gate`);
+
+export const buildParcelCollected = (p: ParcelRow, tokens: string[]) =>
+  toMessages(
+    tokens,
+    "parcel_collected",
+    p.id,
+    "Parcel collected",
+    `${p.courier} parcel collected by ${p.collected_by_name}`,
+  );
+
+export const buildVisitAutoApproved = (v: VisitRow, tokens: string[]) =>
+  toMessages(
+    tokens,
+    "visit_auto_approved",
+    v.id,
+    "Visitor let in",
+    `${v.name} (${titleCase(v.purpose)}) entered — you were expecting it`,
+  );
+
+/** Messages for a visits INSERT, or null when the visit is not notifiable. */
+export function buildVisitInsert(v: VisitRow, tokens: string[]): (ExpoMessage | RoundMessage)[] | null {
+  if (v.status === "approved" && v.expected_entry_id) return buildVisitAutoApproved(v, tokens);
+  if (v.pass_id !== null || v.status === "pending") return buildMessages(v, tokens);
+  return null;
+}

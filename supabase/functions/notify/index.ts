@@ -12,11 +12,16 @@ import {
   buildComplaintCreated,
   buildComplaintReply,
   buildComplaintStatus,
-  buildMessages,
+  buildHelperIn,
+  buildHelperOut,
+  buildParcelCollected,
+  buildParcelLogged,
+  buildVisitInsert,
   buildNoticePosted,
   chunk,
   type ExpoMessage,
   flatLabel,
+  type ParcelRow,
   type RoundMessage,
   type VisitRow,
 } from "./push.ts";
@@ -112,12 +117,41 @@ Deno.serve(async (req) => {
   switch (kind) {
     case "visits:INSERT": {
       const visit = record as VisitRow & { flat_id: string; society_id: string };
-      const isPending = visit.status === "pending" && visit.pass_id === null;
-      if (!isPending && visit.pass_id === null) return skip("not notifiable");
+      if (buildVisitInsert(visit, []) === null) return skip("not notifiable");
       built = await flatTokens(supabase, visit.flat_id, visit.society_id);
-      make = (t) => buildMessages(visit, t);
+      make = (t) => buildVisitInsert(visit, t) ?? [];
       break;
     }
+    case "helper_attendance:INSERT":
+    case "helper_attendance:UPDATE": {
+      const isIn = payload.type === "INSERT";
+      if (!isIn && (!old || old.exit_at !== null || record.exit_at === null)) return skip("not an exit");
+      const { data: helper, error: hErr } = await supabase
+        .from("helpers").select("name, type").eq("id", record.helper_id).maybeSingle();
+      if (hErr) return fail(hErr.message);
+      if (!helper) return skip("helper not found");
+      const { data: links, error: lErr } = await supabase
+        .from("helper_flats").select("flat_id").eq("helper_id", record.helper_id);
+      if (lErr) return fail(lErr.message);
+      const tokens = new Set<string>();
+      for (const l of links ?? []) {
+        const r = await flatTokens(supabase, l.flat_id, record.society_id);
+        if ("error" in r) return fail(r.error);
+        r.tokens.forEach((x) => tokens.add(x));
+      }
+      built = { tokens: [...tokens] };
+      make = (t) => (isIn ? buildHelperIn : buildHelperOut)(record.id, helper, t);
+      break;
+    }
+    case "parcels:INSERT":
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildParcelLogged(record as ParcelRow, t);
+      break;
+    case "parcels:UPDATE":
+      if (!old || old.status === "collected" || record.status !== "collected") return skip("not a collection");
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildParcelCollected(record as ParcelRow, t);
+      break;
     case "notices:INSERT":
       built = await societyTokens(supabase, record.society_id, "resident");
       make = (t) => buildNoticePosted({ id: record.id, title: record.title }, t);
