@@ -59,7 +59,7 @@ export default function HistoryScreen() {
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
       <Header title="Visitor history" subtitle={flat?.label} onBack={() => router.back()} />
       <FlatSwitcher />
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (

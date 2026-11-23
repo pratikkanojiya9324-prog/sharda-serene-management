@@ -118,7 +118,7 @@ export default function Parcels() {
         onBack={back}
       />
       {societyError ? <Banner text={societyError} /> : null}
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
       {actionError && !handing ? <Banner text={actionError} /> : null}
       <Button title="Log a parcel" icon="add-circle-outline" onPress={() => router.push('/(guard)/parcel')} />
 

@@ -52,7 +52,7 @@ export default function ComplaintsScreen() {
       <Header overline={flat?.label} title="Complaints" subtitle="Raise an issue and follow its progress" />
       <FlatSwitcher />
       <Button title="Raise a complaint" icon="add-circle" onPress={raise} disabled={!flat} />
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (

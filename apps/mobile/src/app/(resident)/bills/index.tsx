@@ -54,7 +54,7 @@ export default function BillsScreen() {
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline={flat?.label} title="Bills" subtitle="Maintenance bills and receipts" />
       <FlatSwitcher />
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (

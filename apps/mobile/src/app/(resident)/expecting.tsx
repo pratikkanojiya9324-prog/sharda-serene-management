@@ -98,7 +98,7 @@ export default function ExpectingScreen() {
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
       <Header
         title="Expecting someone"
-        subtitle="Matching visitors are let in without asking you"
+        subtitle={`Any ${PURPOSE_OPTIONS.find((o) => o.value === purpose)?.label.toLowerCase() ?? 'visitor'} for your flat is let in without asking you until the time you pick. The company is shown to the guard.`}
         onBack={() => router.back()}
       />
       <FlatSwitcher />

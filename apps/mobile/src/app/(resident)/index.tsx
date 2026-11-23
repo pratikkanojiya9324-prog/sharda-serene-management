@@ -131,7 +131,7 @@ export default function ResidentHome() {
           </Card>
         ) : null}
 
-        {error && state === 'ready' ? <Banner text={error} /> : null}
+        {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
 
         {state === 'error' ? (
           <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />

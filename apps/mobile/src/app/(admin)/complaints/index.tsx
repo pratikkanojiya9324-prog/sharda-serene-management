@@ -67,7 +67,7 @@ export default function AdminComplaintsScreen() {
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline={societyName ?? 'Admin'} title="Complaints" subtitle="Update residents as work progresses" />
       {societyError ? <Banner text={societyError} /> : null}
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
       {state === 'error' ? (
         <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (

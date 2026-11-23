@@ -8,7 +8,7 @@ import { isSessionExpired, reportError } from '@/lib/errors';
 import { formatTime } from '@/lib/format';
 import { guardErrorText } from '@/lib/guardErrors';
 import { helperFlatLabels, isInside, loadGuardHelpers, type GuardHelper } from '@/lib/guardHelperData';
-import { helperAction, matchHelpers } from '@/lib/guardHelpers';
+import { exactHelper, helperAction, matchHelpers } from '@/lib/guardHelpers';
 import { useGuardSociety } from '@/lib/guardSociety';
 import { helperTypeLabel } from '@/lib/helpers';
 import { screenState } from '@/lib/screenState';
@@ -80,7 +80,7 @@ export default function DailyHelp() {
   const back = () => (router.canGoBack() ? router.back() : router.replace('/(guard)'));
   const q = query.trim();
   const matches = matchHelpers(helpers, q);
-  const exact = /^\d{6}$/.test(q) && matches.length === 1 ? matches[0] : null;
+  const exact = exactHelper(matches, q);
   const rest = exact ? [] : matches;
 
   return (
@@ -97,7 +97,7 @@ export default function DailyHelp() {
         icon="search-outline"
       />
       {actionError ? <Banner text={actionError} /> : null}
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
 
       {state === 'error' ? (
         <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
@@ -135,7 +135,7 @@ function HelperCard({
 }) {
   const { colors } = useTheme();
   const inside = isInside(h);
-  const action = helperAction(h, inside);
+  const action = helperAction({ active: h.active, flatCount: h.helper_flats.length }, inside);
   const since = h.helper_attendance.find((a) => a.exit_at === null)?.entry_at;
   const status = inside
     ? { label: since ? `Inside since ${formatTime(since)}` : 'Inside', tone: 'success' as const, icon: 'checkmark-circle' as const }
@@ -163,6 +163,8 @@ function HelperCard({
       </View>
       {action === 'blocked' ? (
         <Button title="Blocked by office" icon="ban" variant="secondary" disabled onPress={() => {}} />
+      ) : action === 'unlinked' ? (
+        <Button title="Not linked to any flat" icon="link-outline" variant="secondary" disabled onPress={() => {}} />
       ) : (
         <Button
           title={action === 'check_in' ? 'Check in' : 'Check out'}

@@ -30,6 +30,8 @@ const ERROR_TEXT: Record<string, string> = {
   already_cancelled: 'Already cancelled',
   invalid_courier: 'Enter the courier name',
   already_collected: 'This parcel was already handed over',
+  helper_unlinked: 'This person is not linked to any flat',
+  parcel_already_logged: 'This delivery was already logged as a parcel',
   invalid_type: 'Choose a type',
   invalid_active: 'Something went wrong, try again',
   code_generation_failed: "Couldn't create a code, try again",

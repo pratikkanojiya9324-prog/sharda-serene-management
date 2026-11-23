@@ -177,8 +177,10 @@ export function useFocusLoad(load: () => Promise<void | boolean>, ready = true) 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await load();
+      const ok = await load();
       setError(null);
+      // A retry after a failed first load must leave the spinner state too.
+      if (ok !== false) setLoaded(true);
     } catch (e) {
       console.warn('[useFocusLoad] refresh threw', e);
       setError(reportError(e as { message?: string } | null));

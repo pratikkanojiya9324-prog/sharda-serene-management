@@ -48,7 +48,7 @@ export default function FamilyScreen() {
         subtitle={members.length ? `${members.length} member${members.length > 1 ? 's' : ''} in this flat` : undefined}
       />
       <FlatSwitcher />
-      {error && state === 'ready' ? <Banner text={error} /> : null}
+      {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (

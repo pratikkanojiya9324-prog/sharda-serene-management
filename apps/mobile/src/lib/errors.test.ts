@@ -27,6 +27,8 @@ describe('friendlyError', () => {
     ['already_collected', 'This parcel was already handed over'],
     ['invalid_type', 'Choose a type'],
     ['invalid_active', 'Something went wrong, try again'],
+    ['helper_unlinked', 'This person is not linked to any flat'],
+    ['parcel_already_logged', 'This delivery was already logged as a parcel'],
     ['code_generation_failed', "Couldn't create a code, try again"],
     ['invalid_photo_path', 'The photo could not be attached, try again'],
     ['Network request failed', 'No internet connection, try again'],

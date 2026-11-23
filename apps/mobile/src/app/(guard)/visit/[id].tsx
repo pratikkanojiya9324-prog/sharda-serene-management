@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FLAT_DIRECTORY_SELECT, shouldShowCallButton, type VisitStatus } from '@society-gate/shared';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Text, View } from 'react-native';
 
 import { CallResident } from '@/components/CallResident';
@@ -11,6 +11,7 @@ import { actorLabel } from '@/lib/attribution';
 import { flatLabels } from '@/lib/flatDirectory';
 import { formatTime } from '@/lib/format';
 import { guardErrorText } from '@/lib/guardErrors';
+import { expectedLine, prefillCourier } from '@/lib/guardVisit';
 import { VISIT_PURPOSE } from '@/lib/status';
 import { supabase } from '@/lib/supabase';
 import { useLiveVisit } from '@/lib/useLiveVisit';
@@ -40,6 +41,46 @@ export default function VisitScreen() {
   const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const photoUrl = useVisitPhoto(visit?.photo_path);
+
+  const [expected, setExpected] = useState<{ company: string | null; purpose: string; created_by_name: string | null } | null>(null);
+  const [parcelLogged, setParcelLogged] = useState(false);
+
+  const expectedId = visit?.expected_entry_id ?? null;
+  useEffect(() => {
+    if (!expectedId) return;
+    let active = true;
+    supabase
+      .from('expected_entries')
+      .select('company, purpose, created_by_name')
+      .eq('id', expectedId)
+      .maybeSingle()
+      .then((r) => {
+        if (active && r.data) setExpected(r.data);
+      });
+    return () => {
+      active = false;
+    };
+  }, [expectedId]);
+
+  // Re-check on focus: the guard may come back from the parcel screen.
+  const visitId = visit?.id ?? null;
+  useFocusEffect(
+    useCallback(() => {
+      if (!visitId) return;
+      let active = true;
+      supabase
+        .from('parcels')
+        .select('id')
+        .eq('visit_id', visitId)
+        .limit(1)
+        .then((r) => {
+          if (active && !r.error) setParcelLogged((r.data ?? []).length > 0);
+        });
+      return () => {
+        active = false;
+      };
+    }, [visitId]),
+  );
 
   const flatId = visit?.flat_id ?? null;
   useEffect(() => {
@@ -184,19 +225,22 @@ export default function VisitScreen() {
       ) : null}
 
       {visit.expected_entry_id && visit.status === 'approved' && !visit.manual_outcome ? (
-        <View style={{ flexDirection: 'row' }}>
-          <Pill label={visitPill(visit).label} tone={visitPill(visit).tone} icon={visitPill(visit).icon} />
+        <View style={{ gap: space.xs }}>
+          <View style={{ flexDirection: 'row' }}>
+            <Pill label={visitPill(visit).label} tone={visitPill(visit).tone} icon={visitPill(visit).icon} />
+          </View>
+          {expected ? <Text style={[type.caption, { color: colors.textMuted }]}>{expectedLine(expected)}</Text> : null}
         </View>
       ) : null}
 
-      {visit.status === 'leave_at_gate' && visit.purpose === 'delivery' ? (
+      {visit.status === 'leave_at_gate' && visit.purpose === 'delivery' && !parcelLogged ? (
         <Button
           title="Log as parcel"
           icon="cube-outline"
           onPress={() =>
             router.push({
               pathname: '/(guard)/parcel',
-              params: { flatId: visit.flat_id, visitId: visit.id, courier: visit.name },
+              params: { flatId: visit.flat_id, visitId: visit.id, courier: prefillCourier(visit.name) },
             })
           }
         />

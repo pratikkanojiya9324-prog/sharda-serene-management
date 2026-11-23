@@ -41,4 +41,27 @@ describe('useFocusLoad', () => {
     await waitFor(() => expect(result.current.error).toBe('Something went wrong, try again'));
     expect(result.current.loaded).toBe(false);
   });
+
+  it('retry after a failed first load marks the screen loaded', async () => {
+    let calls = 0;
+    const load = jest.fn(async () => (++calls === 1 ? false : undefined));
+    const { result } = await renderHook(() => useFocusLoad(load));
+    await waitFor(() => expect(load).toHaveBeenCalled());
+    await act(async () => {});
+    expect(result.current.loaded).toBe(false);
+    await act(async () => {
+      await result.current.onRefresh();
+    });
+    expect(result.current.loaded).toBe(true);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('a refresh that resolves false does not mark loaded', async () => {
+    const load = jest.fn(async () => false);
+    const { result } = await renderHook(() => useFocusLoad(load));
+    await act(async () => {
+      await result.current.onRefresh();
+    });
+    expect(result.current.loaded).toBe(false);
+  });
 });

@@ -160,7 +160,7 @@ export default function GuardHome() {
         </View>
 
         {societyError ? <Banner text={societyError} /> : null}
-        {error && state === 'ready' ? <Banner text={error} /> : null}
+        {(error ?? loadFailure) && state === 'ready' ? <Banner text={(error ?? loadFailure) as string} /> : null}
 
         {actionError ? <Banner text={actionError} /> : null}
         {state === 'ready' && helpInside.length ? (

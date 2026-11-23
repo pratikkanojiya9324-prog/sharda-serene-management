@@ -19,6 +19,9 @@ const MESSAGES: Record<string, string> = {
   invalid_rows: 'The bill rows are not valid.',
   already_paid: 'This bill is already paid.',
   invalid_payment_mode: 'Choose a payment mode.',
+  code_generation_failed: "Couldn't create a code, try again",
+  helper_unlinked: 'This person is not linked to any flat.',
+  parcel_already_logged: 'This delivery was already logged as a parcel.',
   unauthenticated: 'Your session has expired. Sign in again.',
 };
 
