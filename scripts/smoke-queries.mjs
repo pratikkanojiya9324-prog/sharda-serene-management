@@ -292,6 +292,18 @@ check(
   await ac.from('parcels').select(sel('PARCEL_SELECT', S.PARCEL_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }).limit(500),
 );
 
+check(
+  'flat   Polls      poll_votes own',
+  await resident.client.from('poll_votes').select('poll_id, flat_id, option_ids').eq('flat_id', flatId),
+);
+const polls = check(
+  'admin  Polls      polls POLL_SELECT',
+  await ac.from('polls').select(sel('POLL_SELECT', S.POLL_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }),
+);
+if (polls?.length) {
+  check('admin  Polls      poll_results', await ac.rpc('poll_results', { p_poll_id: polls[0].id }));
+}
+
 // --- coverage: every exported select constant must have been run ----------------
 for (const name of [...Object.keys(S), ...Object.keys(A)]) {
   if (!name.endsWith('_SELECT')) continue;

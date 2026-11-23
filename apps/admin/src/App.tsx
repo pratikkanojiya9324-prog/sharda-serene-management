@@ -13,6 +13,7 @@ import Flats from './pages/Flats';
 import Login from './pages/Login';
 import Notices from './pages/Notices';
 import Parcels from './pages/Parcels';
+import Polls from './pages/Polls';
 import Staff from './pages/Staff';
 import VisitorLog from './pages/VisitorLog';
 
@@ -125,6 +126,7 @@ export default function App() {
         <Route path="/flats" element={<Flats />} />
         <Route path="/staff" element={<Staff userId={session.user.id} />} />
         <Route path="/notices" element={<Notices />} />
+        <Route path="/polls" element={<Polls />} />
         <Route path="/complaints" element={<Complaints userId={session.user.id} userName={ctx.userName} />} />
         <Route path="/bills" element={<Bills />} />
         <Route path="/visits" element={<VisitorLog />} />
