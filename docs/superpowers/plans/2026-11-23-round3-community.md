@@ -107,7 +107,7 @@
 
 1. **Poll secrecy through the API.** An admin or another flat doing `select * from poll_votes`, or calling `poll_results` before voting, learns nothing about other flats' choices. Tested in Task 1 pgTAP: admin selecting `poll_votes` gets 0 rows; resident counts are null before voting.
 2. **Double vote or late vote.** Two phones of the same flat vote at once, or a vote arrives after `closes_at`. The result must be exactly one row, the second call gets `already_voted`, and a late call gets `poll_closed`. Tested in Task 1 pgTAP, including a vote after `closes_at` is moved into the past as postgres.
-3. **Slot race and grid edges.** Two flats book the same slot: the second gets `slot_taken`. A start not on the grid gets `bad_slot`. A slot ending after close_time gets `outside_hours`. An IST date boundary is not treated as UTC. Tested in Task 4 pgTAP with a 23:30 IST slot.
+3. **Slot race and grid edges.** Two flats book the same slot: the second gets `slot_taken`. A start not on the grid gets `bad_slot`. A slot ending after close_time gets `outside_hours`. An IST date boundary is not treated as UTC. Tested in Task 4 pgTAP (slot ending exactly at close, 00:30 IST boundary).
 4. **SOS failure is visible.** When `raise_sos` fails offline or errors, the resident sees "Couldn't send SOS", Try again and the emergency numbers, never a spinner. A second press while one is open returns the same alert. Tested in Task 9 Jest (`sosSendState`) and Task 5 pgTAP (idempotent raise).
 5. **Directory phone leak.** A member with `in_directory` true and `show_phone` false shows no phone. Turning `in_directory` off hides the member completely. Tested in Task 5 pgTAP.
 
@@ -289,7 +289,7 @@
   - `cancel_booking(p_booking_id uuid) returns amenity_bookings`. Resident of the flat. Errors: `already_cancelled` (cancelled or rejected), `already_started`.
   - `decide_booking(p_booking_id uuid, p_approve boolean, p_reason text default null) returns amenity_bookings`. Admin only. Errors: `not_pending`, `invalid_reason`.
 
-- [ ] **Write failing pgTAP tests** for a court with 60-minute slots, open 06:00–23:59. Create the amenities with `upsert_amenity` as admin, and pick dates relative to the current IST date:
+- [ ] **Write failing pgTAP tests** for a court with 60-minute slots, open 06:00–22:00. Create the amenities with `upsert_amenity` as admin, and pick dates relative to the current IST date:
   - Book tomorrow 18:00 IST → confirmed.
   - Flat B booking the same slot → `slot_taken`.
   - 18:30 → `bad_slot`; 05:00 → `outside_hours`; day +15 → `too_far_ahead`; an earlier hour today → `in_past`.
@@ -298,7 +298,7 @@
   - The party hall (1440, approval) creates a `pending` booking; `decide_booking` reject with a reason → `rejected`; deciding again → `not_pending`.
   - A slot freed by cancel can be booked again.
   - Cancel by flat B → `not_authorized`.
-  - A 23:00 slot on a court closing at 23:59 is valid; at 30-minute slots, 23:30 is valid.
+  - A 21:00 slot (ends exactly at 22:00 close) is valid; 22:00 → `outside_hours`. A second amenity open 00:00–23:00 with 30-minute slots: 22:30 is valid, 23:00 → `outside_hours`.
   - An IST boundary case: booking `(tomorrow 00:30 IST)` on an amenity open from 00:00 counts as tomorrow's date, not today's in UTC.
   - Upsert validation errors.
 - [ ] **Run.** Expected: FAIL.
