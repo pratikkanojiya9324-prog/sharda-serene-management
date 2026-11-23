@@ -275,6 +275,19 @@ check(
     .order('id'),
 );
 check(
+  'flat   DailyHelp  helpers HELPER_RESIDENT_SELECT (month attendance)',
+  await resident.client
+    .from('helpers')
+    .select(sel('HELPER_RESIDENT_SELECT', S.HELPER_RESIDENT_SELECT))
+    .gte('helper_attendance.entry_at', new Date(startOfDay.getFullYear(), startOfDay.getMonth(), 1).toISOString())
+    .order('name'),
+  true,
+);
+check(
+  'flat   Parcels    parcels PARCEL_SELECT',
+  await resident.client.from('parcels').select(sel('PARCEL_SELECT', S.PARCEL_SELECT)).eq('flat_id', flatId).order('created_at', { ascending: false }),
+);
+check(
   'admin  Parcels    parcels PARCEL_SELECT',
   await ac.from('parcels').select(sel('PARCEL_SELECT', S.PARCEL_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }).limit(500),
 );

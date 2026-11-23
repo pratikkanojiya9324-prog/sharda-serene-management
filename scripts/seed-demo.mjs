@@ -240,12 +240,50 @@ if (newBills.length) {
   await ok(db.from('receipt_counters').upsert({ society_id: societyId, month: period, last }, { onConflict: 'society_id,month' }));
 }
 
+// ---- daily help + a parcel (Round 2) -----------------------------------------
+// Fixed demo entry codes so testers can try the guard keypad: 111111, 222222, 333333.
+const flatByLabel = new Map(flats.map((f) => [f.label, f.id]));
+const HELPERS = [
+  { name: 'Sunita', phone: '+919800000001', type: 'maid', entry_code: '111111', flats: ['B1-A-101', 'B1-A-102'] },
+  { name: 'Ramesh', phone: '+919800000002', type: 'driver', entry_code: '222222', flats: ['B1-A-101'] },
+  { name: 'Meena', phone: '+919800000003', type: 'cook', entry_code: '333333', flats: ['B2-A-301'] },
+];
+let newHelpers = 0;
+for (const h of HELPERS) {
+  let row = (await ok(db.from('helpers').select('id').eq('society_id', societyId).eq('phone', h.phone).limit(1)))[0];
+  if (!row) {
+    row = await ok(
+      db.from('helpers')
+        .insert({ society_id: societyId, name: h.name, phone: h.phone, type: h.type, entry_code: h.entry_code })
+        .select('id')
+        .single(),
+    );
+    newHelpers++;
+  }
+  const links = h.flats.map((label) => ({ helper_id: row.id, flat_id: flatByLabel.get(label), society_id: societyId }));
+  await ok(db.from('helper_flats').upsert(links, { onConflict: 'helper_id,flat_id', ignoreDuplicates: true }));
+}
+
+const parcelCount = (await ok(db.from('parcels').select('id').eq('society_id', societyId).limit(1))).length;
+if (!parcelCount) {
+  await ok(
+    db.from('parcels').insert({
+      society_id: societyId,
+      flat_id: flatByLabel.get('B1-A-101'),
+      courier: 'Amazon',
+      note: 'Medium box',
+      logged_by: staffIds.guard1,
+    }),
+  );
+}
+
 // ---- summary ---------------------------------------------------------------
 const count = async (table) => (await db.from(table).select('id', { count: 'exact', head: true }).eq('society_id', societyId)).count;
 console.log(`Society: ${SOCIETY_NAME}  id=${societyId}`);
 console.log(`Flats: ${flats.length} (new flat accounts this run: ${newFlatAccounts})`);
 console.log(`Family members: ${await count('family_members')}  Notices: ${await count('notices')} (+${newNotices})  Complaints: ${await count('complaints')} (+${newComplaints})`);
 console.log(`Bills: ${await count('bills')} (new this run: ${newBills.length}, marked paid: ${paidBills}, period ${period})`);
+console.log(`Daily help: ${await count('helpers')} (+${newHelpers}, codes 111111/222222/333333)  Parcels: ${await count('parcels')}`);
 console.log('Demo logins:');
 console.log(`  Flat Building 1 / A / 101 -> password ${flats[0].password}  (pattern Sharda@<building><wing><flat>)`);
 for (const s of STAFF) console.log(`  Staff ${s.role}: username ${s.username} / ${s.password}`);
