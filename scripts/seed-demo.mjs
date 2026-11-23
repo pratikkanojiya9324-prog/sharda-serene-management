@@ -277,6 +277,125 @@ if (!parcelCount) {
   );
 }
 
+// ---- community (Round 3): polls, amenities, event, documents, contacts, directory ----
+const DAY = 24 * 60 * 60 * 1000;
+// A date N days from today (IST) at hh:mm IST, as an ISO instant.
+function istAt(daysAhead, hh, mm = 0) {
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000 + daysAhead * DAY);
+  const d = ist.toISOString().slice(0, 10);
+  return new Date(`${d}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+05:30`).toISOString();
+}
+const opts = (labels) => labels.map((label) => ({ id: crypto.randomUUID(), label }));
+
+let newPolls = 0;
+if (!(await ok(db.from('polls').select('id').eq('society_id', societyId).limit(1))).length) {
+  const colour = opts(['Cream', 'Light grey', 'Peach']);
+  const open = await ok(
+    db.from('polls')
+      .insert({
+        society_id: societyId,
+        question: 'Which colour for the building repaint?',
+        description: 'The committee will repaint both buildings in January. Pick the colour your flat prefers.',
+        options: colour,
+        closes_at: istAt(7, 21),
+        created_by: adminId,
+      })
+      .select('id')
+      .single(),
+  );
+  await ok(db.from('poll_votes').insert({
+    poll_id: open.id, flat_id: flatByLabel.get('B1-A-102'), society_id: societyId, option_ids: [colour[0].id], voted_by_name: 'Priya',
+  }));
+  const guard = opts(['Yes', 'No']);
+  const closed = await ok(
+    db.from('polls')
+      .insert({
+        society_id: societyId,
+        question: 'Should we hire a second night guard?',
+        options: guard,
+        closes_at: istAt(-2, 21),
+        closed_at: istAt(-2, 21),
+        created_by: adminId,
+        created_at: istAt(-9, 10),
+      })
+      .select('id')
+      .single(),
+  );
+  await ok(db.from('poll_votes').insert([
+    { poll_id: closed.id, flat_id: flatByLabel.get('B1-A-102'), society_id: societyId, option_ids: [guard[0].id], voted_by_name: 'Priya' },
+    { poll_id: closed.id, flat_id: flatByLabel.get('B2-A-301'), society_id: societyId, option_ids: [guard[1].id], voted_by_name: 'Resident' },
+  ]));
+  newPolls = 2;
+}
+
+if (!(await ok(db.from('amenities').select('id').eq('society_id', societyId).limit(1))).length) {
+  await ok(db.from('amenities').insert([
+    { society_id: societyId, name: 'Party hall', description: 'Ground floor, Building 1. Seats 80.', open_time: '09:00', close_time: '23:00', slot_minutes: 1440, requires_approval: true, max_upcoming: 1, fee_note: '₹2,000 per day' },
+    { society_id: societyId, name: 'Badminton court', description: 'Indoor court near the garden.', open_time: '06:00', close_time: '22:00', slot_minutes: 60, requires_approval: false, max_upcoming: 2 },
+    { society_id: societyId, name: 'Clubhouse', description: 'Clubhouse lounge with TV.', open_time: '08:00', close_time: '22:00', slot_minutes: 120, requires_approval: true, max_upcoming: 2 },
+  ]));
+}
+
+if (!(await ok(db.from('events').select('id').eq('society_id', societyId).limit(1))).length) {
+  await ok(db.from('events').insert({
+    society_id: societyId,
+    title: 'Diwali get-together',
+    description: 'Snacks, rangoli and games for kids. Bring your family!',
+    place: 'Clubhouse',
+    starts_at: istAt(7, 19),
+    ends_at: istAt(7, 22),
+    created_by: adminId,
+  }));
+}
+
+// A tiny valid one-page PDF with a line of text.
+function tinyPdf(text) {
+  const stream = `BT /F1 18 Tf 72 720 Td (${text}) Tj ET`;
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let out = '%PDF-1.4\n';
+  const offsets = [];
+  objs.forEach((o, i) => { offsets.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
+if (!(await ok(db.from('documents').select('id').eq('society_id', societyId).limit(1))).length) {
+  for (const doc of [
+    { title: 'Society bylaws', category: 'bylaws', text: 'Sharda Serene - Society bylaws (demo)' },
+    { title: 'AGM minutes 2026', category: 'minutes', text: 'Sharda Serene - AGM minutes 2026 (demo)' },
+  ]) {
+    const path = `${societyId}/${crypto.randomUUID()}.pdf`;
+    const { error } = await db.storage.from('society-docs').upload(path, tinyPdf(doc.text), { contentType: 'application/pdf', upsert: true });
+    if (error) throw new Error(`upload ${doc.title}: ${error.message}`);
+    await ok(db.from('documents').insert({ society_id: societyId, title: doc.title, category: doc.category, file_path: path, file_kind: 'pdf', created_by: adminId }));
+  }
+}
+
+if (!(await ok(db.from('emergency_contacts').select('id').eq('society_id', societyId).limit(1))).length) {
+  await ok(db.from('emergency_contacts').insert([
+    { society_id: societyId, name: 'Police', phone: '112', note: 'All emergencies', sort_order: 1 },
+    { society_id: societyId, name: 'Fire brigade', phone: '101', sort_order: 2 },
+    { society_id: societyId, name: 'Ambulance', phone: '108', sort_order: 3 },
+    { society_id: societyId, name: 'Women helpline', phone: '1091', sort_order: 4 },
+    { society_id: societyId, name: 'Society office', phone: '+919800000099', note: 'Demo number — replace with the real office phone', sort_order: 5 },
+  ]));
+}
+
+// Directory: B1-A-101's family opted in; the first member with a phone also shares it.
+const demoFamily = await ok(db.from('family_members').select('id, phone').eq('flat_id', flatByLabel.get('B1-A-101')).order('created_at'));
+if (demoFamily.length) {
+  await ok(db.from('family_members').update({ in_directory: true }).eq('flat_id', flatByLabel.get('B1-A-101')));
+  const withPhone = demoFamily.find((m) => m.phone);
+  if (withPhone) await ok(db.from('family_members').update({ show_phone: true }).eq('id', withPhone.id));
+}
+
 // ---- summary ---------------------------------------------------------------
 const count = async (table) => (await db.from(table).select('id', { count: 'exact', head: true }).eq('society_id', societyId)).count;
 console.log(`Society: ${SOCIETY_NAME}  id=${societyId}`);
@@ -284,6 +403,7 @@ console.log(`Flats: ${flats.length} (new flat accounts this run: ${newFlatAccoun
 console.log(`Family members: ${await count('family_members')}  Notices: ${await count('notices')} (+${newNotices})  Complaints: ${await count('complaints')} (+${newComplaints})`);
 console.log(`Bills: ${await count('bills')} (new this run: ${newBills.length}, marked paid: ${paidBills}, period ${period})`);
 console.log(`Daily help: ${await count('helpers')} (+${newHelpers}, codes 111111/222222/333333)  Parcels: ${await count('parcels')}`);
+console.log(`Polls: ${await count('polls')} (+${newPolls})  Amenities: ${await count('amenities')}  Events: ${await count('events')}  Documents: ${await count('documents')}  Emergency contacts: ${await count('emergency_contacts')}`);
 console.log('Demo logins:');
 console.log(`  Flat Building 1 / A / 101 -> password ${flats[0].password}  (pattern Sharda@<building><wing><flat>)`);
 for (const s of STAFF) console.log(`  Staff ${s.role}: username ${s.username} / ${s.password}`);
