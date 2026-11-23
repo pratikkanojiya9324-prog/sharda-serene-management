@@ -33,3 +33,13 @@ export const POLL_REMIND_HOURS = 6;
 
 export const SLOT_MINUTES = [30, 60, 120, 240, 1440] as const;
 export const BOOKING_DAYS_AHEAD = 14;
+
+export type SosType = 'medical' | 'fire' | 'security' | 'lift' | 'other';
+
+export const SOS_TYPES: { value: SosType; label: string }[] = [
+  { value: 'medical', label: 'Medical' },
+  { value: 'fire', label: 'Fire' },
+  { value: 'security', label: 'Security' },
+  { value: 'lift', label: 'Lift stuck' },
+  { value: 'other', label: 'Other' },
+];

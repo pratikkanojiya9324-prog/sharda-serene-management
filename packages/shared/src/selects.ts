@@ -55,3 +55,10 @@ export const AMENITY_SELECT =
 /** amenity bookings: booking with amenity name and the flat label. */
 export const BOOKING_SELECT =
   'id, amenity_id, flat_id, start_at, end_at, status, booked_by_name, decided_at, reject_reason, created_at, amenities(name), flats(number, towers!flats_tower_id_fkey(building, name))' as const;
+
+/** SOS alerts (resident + guard + admin): alert with the flat label. */
+export const SOS_SELECT =
+  'id, flat_id, type, status, raised_by_name, created_at, acknowledged_by_name, acknowledged_at, resolved_at, resolved_note, resolved_by_name, flats(number, towers!flats_tower_id_fkey(building, name))' as const;
+
+/** emergency contacts list (all members + admin). */
+export const EMERGENCY_CONTACT_SELECT = 'id, name, phone, note, sort_order, created_at' as const;

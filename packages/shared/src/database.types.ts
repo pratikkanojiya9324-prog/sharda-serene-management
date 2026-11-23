@@ -171,6 +171,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"emergency_contacts": {
+                  Row: {
+                    "created_at": string,"id": string,"name": string,"note": string | null,"phone": string,"society_id": string,"sort_order": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"name": string,"note"?: string | null,"phone": string,"society_id": string,"sort_order"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"name"?: string,"note"?: string | null,"phone"?: string,"society_id"?: string,"sort_order"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "emergency_contacts_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"expected_entries": {
                   Row: {
                     "cancelled_at": string | null,"company": string | null,"created_at": string,"created_by": string | null,"created_by_name": string | null,"flat_id": string,"id": string,"purpose": Database["public"]['Enums']["visit_purpose"],"society_id": string,"used_count": number,"valid_from": string,"valid_to": string
@@ -205,14 +225,14 @@ isOneToOne: false
                   ]
                 },"family_members": {
                   Row: {
-                    "created_at": string,"flat_id": string,"id": string,"name": string,"phone": string | null,"relation": string | null,"society_id": string
+                    "created_at": string,"flat_id": string,"id": string,"in_directory": boolean,"name": string,"phone": string | null,"relation": string | null,"show_phone": boolean,"society_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"flat_id": string,"id"?: string,"name": string,"phone"?: string | null,"relation"?: string | null,"society_id": string
+                    "created_at"?: string,"flat_id": string,"id"?: string,"in_directory"?: boolean,"name": string,"phone"?: string | null,"relation"?: string | null,"show_phone"?: boolean,"society_id": string
                   }
                   Update: {
-                    "created_at"?: string,"flat_id"?: string,"id"?: string,"name"?: string,"phone"?: string | null,"relation"?: string | null,"society_id"?: string
+                    "created_at"?: string,"flat_id"?: string,"id"?: string,"in_directory"?: boolean,"name"?: string,"phone"?: string | null,"relation"?: string | null,"show_phone"?: boolean,"society_id"?: string
                   }
                   Relationships: [
                     {
@@ -681,6 +701,32 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"sos_alerts": {
+                  Row: {
+                    "acknowledged_at": string | null,"acknowledged_by_name": string | null,"created_at": string,"flat_id": string,"id": string,"raised_by_name": string | null,"resolved_at": string | null,"resolved_by_name": string | null,"resolved_note": string | null,"society_id": string,"status": Database["public"]['Enums']["sos_status"],"type": Database["public"]['Enums']["sos_type"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "acknowledged_at"?: string | null,"acknowledged_by_name"?: string | null,"created_at"?: string,"flat_id": string,"id"?: string,"raised_by_name"?: string | null,"resolved_at"?: string | null,"resolved_by_name"?: string | null,"resolved_note"?: string | null,"society_id": string,"status"?: Database["public"]['Enums']["sos_status"],"type": Database["public"]['Enums']["sos_type"]
+                  }
+                  Update: {
+                    "acknowledged_at"?: string | null,"acknowledged_by_name"?: string | null,"created_at"?: string,"flat_id"?: string,"id"?: string,"raised_by_name"?: string | null,"resolved_at"?: string | null,"resolved_by_name"?: string | null,"resolved_note"?: string | null,"society_id"?: string,"status"?: Database["public"]['Enums']["sos_status"],"type"?: Database["public"]['Enums']["sos_type"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "sos_alerts_flat_same_society"
+      columns: ["flat_id","society_id"]
+isOneToOne: false
+      referencedRelation: "flats"
+      referencedColumns: ["id","society_id"]
+    },{
+      foreignKeyName: "sos_alerts_society_id_fkey"
+      columns: ["society_id"]
+isOneToOne: false
+      referencedRelation: "societies"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"towers": {
                   Row: {
                     "building": string,"created_at": string,"id": string,"name": string,"society_id": string
@@ -769,7 +815,28 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "add_complaint_comment":
+            "ack_sos":
+{ Args: { "p_actor_name"?: string,"p_id": string }; Returns: {
+              "acknowledged_at": string | null,
+"acknowledged_by_name": string | null,
+"created_at": string,
+"flat_id": string,
+"id": string,
+"raised_by_name": string | null,
+"resolved_at": string | null,
+"resolved_by_name": string | null,
+"resolved_note": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["sos_status"],
+"type": Database["public"]['Enums']["sos_type"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "sos_alerts"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"add_complaint_comment":
 { Args: { "p_actor_name"?: string,"p_body": string,"p_complaint_id": string }; Returns: {
               "author_id": string | null,
 "author_name": string | null,
@@ -892,6 +959,27 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "expected_entries"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"cancel_sos":
+{ Args: { "p_id": string }; Returns: {
+              "acknowledged_at": string | null,
+"acknowledged_by_name": string | null,
+"created_at": string,
+"flat_id": string,
+"id": string,
+"raised_by_name": string | null,
+"resolved_at": string | null,
+"resolved_by_name": string | null,
+"resolved_note": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["sos_status"],
+"type": Database["public"]['Enums']["sos_type"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "sos_alerts"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -1092,11 +1180,19 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"delete_emergency_contact":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
 "delete_notice":
 { Args: { "p_id": string }; Returns: undefined
                            },
 "delete_poll":
 { Args: { "p_poll_id": string }; Returns: undefined
+                           },
+"directory_committee":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "name": string
+            }[]
                            },
 "expire_stale_visits":
 { Args: Record<PropertyKey, never>; Returns: number
@@ -1264,6 +1360,27 @@ isOneToOne: false
 "poll_results":
 { Args: { "p_flat_id"?: string,"p_poll_id": string }; Returns: Json
                            },
+"raise_sos":
+{ Args: { "p_actor_name"?: string,"p_flat_id": string,"p_type": Database["public"]['Enums']["sos_type"] }; Returns: {
+              "acknowledged_at": string | null,
+"acknowledged_by_name": string | null,
+"created_at": string,
+"flat_id": string,
+"id": string,
+"raised_by_name": string | null,
+"resolved_at": string | null,
+"resolved_by_name": string | null,
+"resolved_note": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["sos_status"],
+"type": Database["public"]['Enums']["sos_type"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "sos_alerts"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "record_manual_outcome":
 { Args: { "p_outcome": Database["public"]['Enums']["manual_outcome"],"p_visit_id": string }; Returns: {
               "created_at": string,
@@ -1318,6 +1435,32 @@ isOneToOne: false
 "remove_helper_from_flat":
 { Args: { "p_flat_id": string,"p_helper_id": string }; Returns: undefined
                            },
+"resident_directory":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "flat_id": string,"flat_label": string,"name": string,"phone": string,"relation": string
+            }[]
+                           },
+"resolve_sos":
+{ Args: { "p_actor_name"?: string,"p_id": string,"p_note"?: string }; Returns: {
+              "acknowledged_at": string | null,
+"acknowledged_by_name": string | null,
+"created_at": string,
+"flat_id": string,
+"id": string,
+"raised_by_name": string | null,
+"resolved_at": string | null,
+"resolved_by_name": string | null,
+"resolved_note": string | null,
+"society_id": string,
+"status": Database["public"]['Enums']["sos_status"],
+"type": Database["public"]['Enums']["sos_type"]
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "sos_alerts"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "respond_to_visit":
 { Args: { "p_actor_name"?: string,"p_response": Database["public"]['Enums']["visit_status"],"p_visit_id": string }; Returns: {
               "created_at": string,
@@ -1407,6 +1550,24 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"set_directory_visibility":
+{ Args: { "p_in_directory": boolean,"p_member_id": string,"p_show_phone": boolean }; Returns: {
+              "created_at": string,
+"flat_id": string,
+"id": string,
+"in_directory": boolean,
+"name": string,
+"phone": string | null,
+"relation": string | null,
+"show_phone": boolean,
+"society_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "family_members"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "set_helper_active":
 { Args: { "p_active": boolean,"p_helper_id": string }; Returns: {
               "active": boolean,
@@ -1491,6 +1652,22 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"upsert_emergency_contact":
+{ Args: { "p_id": string,"p_name": string,"p_note": string,"p_phone": string,"p_sort_order": number }; Returns: {
+              "created_at": string,
+"id": string,
+"name": string,
+"note": string | null,
+"phone": string,
+"society_id": string,
+"sort_order": number
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "emergency_contacts"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "use_pass":
 { Args: { "p_code": string }; Returns: {
               "created_at": string,
@@ -1526,7 +1703,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "bill_status": "unpaid"|"paid","booking_status": "pending"|"confirmed"|"rejected"|"cancelled","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
+            "bill_status": "unpaid"|"paid","booking_status": "pending"|"confirmed"|"rejected"|"cancelled","complaint_category": "plumbing"|"electrical"|"lift"|"cleaning"|"security"|"parking"|"other","complaint_status": "open"|"in_progress"|"resolved","helper_type": "maid"|"cook"|"driver"|"nanny"|"car_cleaner"|"tutor"|"other","manual_outcome": "allowed"|"sent_back","member_role": "admin"|"guard"|"resident","parcel_status": "at_gate"|"collected"|"returned","payment_mode": "cash"|"cheque"|"upi"|"other","sos_status": "open"|"acknowledged"|"resolved"|"cancelled","sos_type": "medical"|"fire"|"security"|"lift"|"other","visit_purpose": "delivery"|"guest"|"cab"|"service"|"other","visit_status": "pending"|"approved"|"denied"|"leave_at_gate"|"expired"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1646,7 +1823,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "bill_status": ["unpaid", "paid"],"booking_status": ["pending", "confirmed", "rejected", "cancelled"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
+            "bill_status": ["unpaid", "paid"],"booking_status": ["pending", "confirmed", "rejected", "cancelled"],"complaint_category": ["plumbing", "electrical", "lift", "cleaning", "security", "parking", "other"],"complaint_status": ["open", "in_progress", "resolved"],"helper_type": ["maid", "cook", "driver", "nanny", "car_cleaner", "tutor", "other"],"manual_outcome": ["allowed", "sent_back"],"member_role": ["admin", "guard", "resident"],"parcel_status": ["at_gate", "collected", "returned"],"payment_mode": ["cash", "cheque", "upi", "other"],"sos_status": ["open", "acknowledged", "resolved", "cancelled"],"sos_type": ["medical", "fire", "security", "lift", "other"],"visit_purpose": ["delivery", "guest", "cab", "service", "other"],"visit_status": ["pending", "approved", "denied", "leave_at_gate", "expired"]
           }
         }
 } as const
