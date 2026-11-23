@@ -9,20 +9,29 @@ import { sendBatch } from "./expo.ts";
 import {
   buildBillCreated,
   buildBillPaid,
+  buildBookingDecided,
+  buildBookingRequested,
   buildComplaintCreated,
   buildComplaintReply,
   buildComplaintStatus,
+  buildEventCreated,
   buildHelperIn,
   buildHelperOut,
   buildParcelCollected,
   buildParcelLogged,
+  buildPollCreated,
+  buildPollReminder,
+  buildSosRaised,
+  buildSosUpdate,
   buildVisitInsert,
   buildNoticePosted,
   chunk,
+  type BookingRow,
   type ExpoMessage,
   flatLabel,
   type ParcelRow,
   type RoundMessage,
+  type SosRow,
   type VisitRow,
 } from "./push.ts";
 
@@ -42,7 +51,7 @@ async function memberProfiles(
   // deno-lint-ignore no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   societyId: string,
-  role: "resident" | "admin",
+  role: "resident" | "admin" | "guard",
   only?: string[],
 ): Promise<string[] | { error: string }> {
   if (only && only.length === 0) return [];
@@ -64,8 +73,38 @@ async function flatTokens(supabase: SupabaseClient<any, any, any>, flatId: strin
 }
 
 // deno-lint-ignore no-explicit-any
-async function societyTokens(supabase: SupabaseClient<any, any, any>, societyId: string, role: "resident" | "admin"): Promise<Tokens> {
-  const ids = await memberProfiles(supabase, societyId, role);
+async function societyTokens(
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  societyId: string,
+  ...roles: ("resident" | "admin" | "guard")[]
+): Promise<Tokens> {
+  const ids = new Set<string>();
+  for (const role of roles) {
+    const r = await memberProfiles(supabase, societyId, role);
+    if ("error" in r) return r;
+    r.forEach((id) => ids.add(id));
+  }
+  return tokensFor(supabase, [...ids]);
+}
+
+/** Tokens of residents in flats of the society that have no vote on the poll. */
+async function nonVotingFlatTokens(
+  // deno-lint-ignore no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  pollId: string,
+  societyId: string,
+): Promise<Tokens> {
+  const { data: flats, error: fErr } = await supabase.from("flats").select("id").eq("society_id", societyId);
+  if (fErr) return { error: fErr.message };
+  const { data: votes, error: vErr } = await supabase.from("poll_votes").select("flat_id").eq("poll_id", pollId);
+  if (vErr) return { error: vErr.message };
+  const voted = new Set((votes ?? []).map((v: Row) => v.flat_id));
+  const open = (flats ?? []).map((f: Row) => f.id).filter((id: string) => !voted.has(id));
+  if (open.length === 0) return { tokens: [] };
+  const { data: links, error: lErr } = await supabase.from("flat_residents").select("profile_id").in("flat_id", open);
+  if (lErr) return { error: lErr.message };
+  const ids = await memberProfiles(supabase, societyId, "resident", [...new Set<string>((links ?? []).map((l: Row) => l.profile_id))]);
   if ("error" in ids) return ids;
   return tokensFor(supabase, ids);
 }
@@ -79,6 +118,13 @@ async function complaintFlatLabel(supabase: SupabaseClient<any, any, any>, flatI
   const tower = (data as any)?.towers;
   if (!data || !tower) return "Flat";
   return flatLabel(tower.building, tower.name, data.number);
+}
+
+// deno-lint-ignore no-explicit-any
+async function amenityName(supabase: SupabaseClient<any, any, any>, amenityId: string): Promise<string> {
+  const { data, error } = await supabase.from("amenities").select("name").eq("id", amenityId).maybeSingle();
+  if (error) console.error("amenityName failed", error.message);
+  return data?.name ?? "the amenity";
 }
 
 // deno-lint-ignore no-explicit-any
@@ -186,6 +232,55 @@ Deno.serve(async (req) => {
       built = await flatTokens(supabase, record.flat_id, record.society_id);
       make = (t) => buildBillPaid(
         { id: record.id, amount: record.amount, due_date: record.due_date, receipt_no: record.receipt_no }, t);
+      break;
+    case "polls:INSERT":
+      built = await societyTokens(supabase, record.society_id, "resident");
+      make = (t) => buildPollCreated({ id: record.id, question: record.question }, t);
+      break;
+    case "polls:UPDATE":
+      if (!old || !record.last_reminded_at || old.last_reminded_at === record.last_reminded_at) {
+        return skip("not a reminder");
+      }
+      built = await nonVotingFlatTokens(supabase, record.id, record.society_id);
+      make = (t) => buildPollReminder({ id: record.id, question: record.question }, t);
+      break;
+    case "events:INSERT":
+      built = await societyTokens(supabase, record.society_id, "resident");
+      make = (t) => buildEventCreated(
+        { id: record.id, title: record.title, place: record.place, starts_at: record.starts_at }, t);
+      break;
+    case "amenity_bookings:INSERT": {
+      if (record.status !== "pending") return skip("not pending");
+      const [label, amenity] = await Promise.all([
+        complaintFlatLabel(supabase, record.flat_id),
+        amenityName(supabase, record.amenity_id),
+      ]);
+      built = await societyTokens(supabase, record.society_id, "admin");
+      make = (t) => buildBookingRequested(record as BookingRow, label, amenity, t);
+      break;
+    }
+    case "amenity_bookings:UPDATE": {
+      if (!old || old.status !== "pending" || !["confirmed", "rejected"].includes(record.status)) {
+        return skip("not a decision");
+      }
+      const amenity = await amenityName(supabase, record.amenity_id);
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildBookingDecided(record as BookingRow, amenity, t);
+      break;
+    }
+    case "sos_alerts:INSERT": {
+      const label = await complaintFlatLabel(supabase, record.flat_id);
+      built = await societyTokens(supabase, record.society_id, "guard", "admin");
+      make = (t) => buildSosRaised(record as SosRow, label, t);
+      break;
+    }
+    case "sos_alerts:UPDATE":
+      // cancelled (and any other status) sends nothing
+      if (!old || old.status === record.status || buildSosUpdate(record as SosRow, ["x"]).length === 0) {
+        return skip("not an SOS update");
+      }
+      built = await flatTokens(supabase, record.flat_id, record.society_id);
+      make = (t) => buildSosUpdate(record as SosRow, t);
       break;
     default:
       return skip(`unhandled ${kind}`);
