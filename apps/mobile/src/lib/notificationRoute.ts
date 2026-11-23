@@ -5,6 +5,7 @@ type DetailPath =
   | '/(resident)/notices/[id]'
   | '/(resident)/complaints/[id]'
   | '/(resident)/bills/[id]'
+  | '/(resident)/polls/[id]'
   | '/(admin)/complaints/[id]';
 
 export type NotificationTarget =
@@ -20,6 +21,8 @@ const RESIDENT_BY_ID = new Map<unknown, DetailPath>([
   ['complaint_updated', '/(resident)/complaints/[id]'],
   ['bill_created', '/(resident)/bills/[id]'],
   ['bill_paid', '/(resident)/bills/[id]'],
+  ['poll_created', '/(resident)/polls/[id]'],
+  ['poll_reminder', '/(resident)/polls/[id]'],
   ['visit_auto_approved', '/(resident)/request/[id]'],
 ]);
 

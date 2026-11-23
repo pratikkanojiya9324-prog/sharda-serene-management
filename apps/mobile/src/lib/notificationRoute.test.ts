@@ -25,6 +25,13 @@ describe('notificationTarget', () => {
     expect(notificationTarget({ type: 'pass_used', visitId: 'v2' }, ['resident'])).toBe('/(resident)/history');
   });
 
+  it.each(['poll_created', 'poll_reminder'])('opens the poll for %s', (type) => {
+    expect(notificationTarget({ type, id: 'p1' }, ['resident'])).toEqual({
+      pathname: '/(resident)/polls/[id]',
+      params: { id: 'p1' },
+    });
+  });
+
   it('opens the notice for notice_posted', () => {
     expect(notificationTarget({ type: 'notice_posted', id: 'n1' }, ['resident'])).toEqual({
       pathname: '/(resident)/notices/[id]',

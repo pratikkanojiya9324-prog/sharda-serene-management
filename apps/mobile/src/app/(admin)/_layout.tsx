@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/tokens';
 
 const TABS: { name: string; title: string; icon: IconName; iconActive: IconName }[] = [
   { name: 'index', title: 'Notices', icon: 'megaphone-outline', iconActive: 'megaphone' },
+  { name: 'polls', title: 'Polls', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
   { name: 'complaints', title: 'Complaints', icon: 'construct-outline', iconActive: 'construct' },
   { name: 'bills/index', title: 'Bills', icon: 'receipt-outline', iconActive: 'receipt' },
   { name: 'more', title: 'More', icon: 'ellipsis-horizontal-circle-outline', iconActive: 'ellipsis-horizontal-circle' },
@@ -15,7 +16,7 @@ const TABS: { name: string; title: string; icon: IconName; iconActive: IconName 
 /** Full-screen routes without a tab button or tab bar. */
 const HIDDEN = ['notices/new'];
 
-// In-app admin: Notices (post / pin / delete), Complaints (a list → detail
+// In-app admin: Notices (post / pin / delete), Polls (a list → new / detail stack), Complaints (a list → detail
 // stack), Bills (by month, mark paid) and More.
 export default function AdminLayout() {
   const { colors } = useTheme();

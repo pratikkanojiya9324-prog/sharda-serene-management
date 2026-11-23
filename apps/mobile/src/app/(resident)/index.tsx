@@ -31,18 +31,21 @@ export default function ResidentHome() {
   const [error, setError] = useState<string | null>(null);
   const [actor, setActor] = useState<string | null>(null);
   const [parcelCount, setParcelCount] = useState(0);
+  const [pollsWaiting, setPollsWaiting] = useState(0);
   const [inside, setInside] = useState<InsideHelper[]>([]);
   const flatId = flat?.id ?? null;
 
   const load = useCallback(async () => {
     setActor(await getActorName());
     if (!flatId) return;
-    const [v, parcels, helpers] = await Promise.all([
+    const [v, parcels, helpers, polls, votes] = await Promise.all([
       supabase.from('visits').select('*').eq('flat_id', flatId).order('created_at', { ascending: false }).limit(20),
       supabase.from('parcels').select('id', { count: 'exact', head: true }).eq('flat_id', flatId).eq('status', 'at_gate'),
       loadFlatHelpers(flatId, monthStartOf()),
+      supabase.from('polls').select('id, closes_at, closed_at').is('closed_at', null).gt('closes_at', new Date().toISOString()),
+      supabase.from('poll_votes').select('poll_id').eq('flat_id', flatId),
     ]);
-    const err = v.error ?? parcels.error;
+    const err = v.error ?? parcels.error ?? polls.error ?? votes.error;
     if (err || helpers.error !== null) {
       setError(err ? reportError(err) : helpers.error);
       return false;
@@ -50,6 +53,8 @@ export default function ResidentHome() {
     setError(null);
     setVisits(v.data ?? []);
     setParcelCount(parcels.count ?? 0);
+    const votedIds = new Set((votes.data ?? []).map((r) => r.poll_id));
+    setPollsWaiting((polls.data ?? []).filter((p) => !votedIds.has(p.id)).length);
     setInside(
       helpers.helpers
         .filter((h) => h.active)
@@ -147,6 +152,19 @@ export default function ResidentHome() {
                 <IconBadge icon="cube" tone="accent" />
                 <Text style={[type.heading, { color: colors.text, flex: 1 }]}>
                   {parcelCount} parcel{parcelCount > 1 ? 's' : ''} at the gate
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+              </Card>
+            ) : null}
+
+            {pollsWaiting > 0 ? (
+              <Card
+                onPress={() => router.push('/(resident)/polls')}
+                accessibilityLabel={`Polls waiting for your vote, ${pollsWaiting}`}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                <IconBadge icon="stats-chart" tone="accent" />
+                <Text style={[type.heading, { color: colors.text, flex: 1 }]}>
+                  Polls waiting for your vote ({pollsWaiting})
                 </Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
               </Card>

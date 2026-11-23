@@ -46,6 +46,10 @@ export default function MoreScreen() {
         <Row icon="cube" label="Parcels" hint="Parcels held at the gate" href="/(resident)/parcels" />
       </Group>
 
+      <Group title="Community">
+        <Row icon="stats-chart" label="Polls" hint="Vote on society decisions" href="/(resident)/polls" />
+      </Group>
+
       <Group title="This phone">
         <Row
           icon="person-circle"

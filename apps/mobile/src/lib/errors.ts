@@ -12,6 +12,15 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_body: 'Write a message first',
   invalid_photo_path: 'The photo could not be attached, try again',
   invalid_actor_name: 'Your name is too long — change it from More',
+  // polls
+  invalid_question: 'Enter the question',
+  invalid_options: 'Add 2 to 6 options',
+  invalid_choice: 'Choose an option',
+  too_many_choices: 'You picked too many options',
+  poll_closed: 'Voting has closed',
+  already_voted: 'Your flat has already voted',
+  remind_too_soon: 'A reminder was sent recently — try again later',
+  invalid_time: 'Check the date and time',
   // admin actions
   invalid_title: 'Give the notice a title',
   invalid_attachment: 'The attachment could not be added, try again',
