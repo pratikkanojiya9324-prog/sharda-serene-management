@@ -32,14 +32,14 @@ export default function BillScreen() {
       setBill(data);
     }
   }, [id]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/(resident)/bills'));
 
   if (!loaded || !bill) {
     return (
       <Screen edges={['top']}>
         <Header title="Bill" onBack={back} />
-        {!loaded ? <Loading /> : error ? <Banner text={error} /> : <EmptyState icon="receipt-outline" title="Bill not found" />}
+        {!loaded ? loadFailure ? <Banner text={loadFailure} /> : <Loading /> : error ? <Banner text={error} /> : <EmptyState icon="receipt-outline" title="Bill not found" />}
       </Screen>
     );
   }

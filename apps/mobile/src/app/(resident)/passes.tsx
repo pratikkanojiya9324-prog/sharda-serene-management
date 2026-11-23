@@ -66,8 +66,8 @@ export default function PassesScreen() {
     setLoadError(null);
     setPasses(data ?? []);
   }, [flatId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-  const state = screenState({ loaded, error: loadError, needsFlat: true, flatLoading, hasFlat: !!flat });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!flatId);
+  const state = screenState({ loaded, error: loadError ?? loadFailure, needsFlat: true, flatLoading, hasFlat: !!flat });
 
   async function create() {
     if (!flatId) return;
@@ -132,7 +132,7 @@ export default function PassesScreen() {
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (
-        <ErrorState message={loadError ?? ''} onRetry={onRefresh} />
+        <ErrorState message={loadError ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         <Loading />
       ) : passes.length ? (

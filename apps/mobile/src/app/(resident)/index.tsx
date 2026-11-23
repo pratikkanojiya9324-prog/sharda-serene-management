@@ -45,8 +45,8 @@ export default function ResidentHome() {
     setError(null);
     setVisits(data ?? []);
   }, [flatId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-  const state = screenState({ loaded, error, needsFlat: true, flatLoading: loading, hasFlat: !!flat });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!flatId);
+  const state = screenState({ loaded, error: error ?? loadFailure, needsFlat: true, flatLoading: loading, hasFlat: !!flat });
 
   // New / changed requests for this flat appear without pull-to-refresh.
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function ResidentHome() {
         {error && state === 'ready' ? <Banner text={error} /> : null}
 
         {state === 'error' ? (
-          <ErrorState message={error ?? ''} onRetry={onRefresh} />
+          <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
         ) : state === 'loading' ? (
           <Loading />
         ) : (

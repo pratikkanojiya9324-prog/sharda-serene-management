@@ -41,8 +41,8 @@ export default function ComplaintsScreen() {
     setError(null);
     setComplaints(data ?? []);
   }, [flatId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!flatId);
+  const state = screenState({ loaded, error: error ?? loadFailure, needsFlat: true, flatLoading, hasFlat: !!flat });
   const count = (s: Complaint['status']) => complaints.filter((c) => c.status === s).length;
   const shown = filter === 'all' ? complaints : complaints.filter((c) => c.status === filter);
   const raise = () => router.push('/(resident)/complaints/new');
@@ -56,7 +56,7 @@ export default function ComplaintsScreen() {
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         <Loading />
       ) : complaints.length ? (

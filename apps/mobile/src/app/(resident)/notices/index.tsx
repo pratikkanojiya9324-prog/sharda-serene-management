@@ -35,15 +35,15 @@ export default function NoticesScreen() {
     setError(null);
     setNotices(sortNotices(data ?? []));
   }, []);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
-  const state = screenState({ loaded, error });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load);
+  const state = screenState({ loaded, error: error ?? loadFailure });
 
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header overline="Society" title="Notices" subtitle="Announcements from the society office" />
       {error && state === 'ready' ? <Banner text={error} /> : null}
       {state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         <Loading />
       ) : notices.length ? (

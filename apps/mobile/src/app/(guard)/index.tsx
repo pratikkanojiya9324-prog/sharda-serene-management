@@ -49,8 +49,8 @@ export default function GuardHome() {
     setError(null);
     setRows(data ?? []);
   }, [societyId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
-  const state = screenState({ loaded, error });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error: error ?? loadFailure });
 
   // Keep the list fresh while the screen is mounted.
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function GuardHome() {
 
         <SectionTitle title="Today's visitors" />
         {state === 'error' ? (
-          <ErrorState message={error ?? ''} onRetry={onRefresh} />
+          <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
         ) : state === 'loading' ? (
           societyError ? null : <Loading />
         ) : rows.length ? (

@@ -30,7 +30,7 @@ export default function NoticeScreen() {
       setMissing(!data);
     }
   }, [id]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/(resident)/notices'));
 
   return (
@@ -38,7 +38,7 @@ export default function NoticeScreen() {
       <Header title="Notice" onBack={back} />
       {error ? <Banner text={error} /> : null}
       {!loaded ? (
-        <Loading />
+        loadFailure ? <Banner text={loadFailure} /> : <Loading />
       ) : missing || !notice ? (
         <EmptyState icon="megaphone-outline" title="Notice not found" message="It may have been removed by the office." />
       ) : (

@@ -42,7 +42,7 @@ export default function ComplaintScreen() {
     setComplaint(c.data);
     setComments(cm.data ?? []);
   }, [id]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load);
   const photoUrl = useSignedUrl('complaint-photos', complaint?.photo_path);
 
   async function send() {
@@ -72,7 +72,7 @@ export default function ComplaintScreen() {
     return (
       <Screen edges={['top']}>
         <Header title="Complaint" onBack={back} />
-        <Loading />
+        {loadFailure ? <Banner text={loadFailure} /> : <Loading />}
       </Screen>
     );
   }

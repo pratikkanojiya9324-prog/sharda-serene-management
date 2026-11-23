@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
+import { reportError } from '@/lib/errors';
 import { signOut } from '@/lib/signOut';
 import { Button, EmptyState, type IconName } from '@/theme/components';
 import { radius, space, toneColors, type, useTheme, type Tone } from '@/theme/tokens';
@@ -142,13 +143,16 @@ export function NoFlatState({ message, onRetry }: { message?: string | null; onR
  * Runs `load` whenever the screen gains focus and exposes pull-to-refresh
  * state. `loaded` turns true once a load succeeds: a `load` that resolves to
  * `false` reports a failure (it has set its own error), so the screen stays
- * out of `loaded` and shows its retry state instead of an empty list.
+ * out of `loaded` and shows its retry state instead of an empty list. A `load`
+ * that throws is a failure too: `error` then holds friendly text (feed it to
+ * `screenState` so the screen never spins forever).
  * Pass `ready = false` while an input is missing (e.g. the flat is still
  * loading) so the screen keeps its spinner instead of an empty state.
  */
 export function useFocusLoad(load: () => Promise<void | boolean>, ready = true) {
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -156,9 +160,14 @@ export function useFocusLoad(load: () => Promise<void | boolean>, ready = true) 
       let active = true;
       load()
         .then((ok) => {
-          if (active && ok !== false) setLoaded(true);
+          if (!active) return;
+          setError(null);
+          if (ok !== false) setLoaded(true);
         })
-        .catch((e) => console.warn('[useFocusLoad] load threw', e));
+        .catch((e: unknown) => {
+          console.warn('[useFocusLoad] load threw', e);
+          if (active) setError(reportError(e as { message?: string } | null));
+        });
       return () => {
         active = false;
       };
@@ -169,10 +178,14 @@ export function useFocusLoad(load: () => Promise<void | boolean>, ready = true) 
     setRefreshing(true);
     try {
       await load();
+      setError(null);
+    } catch (e) {
+      console.warn('[useFocusLoad] refresh threw', e);
+      setError(reportError(e as { message?: string } | null));
     } finally {
       setRefreshing(false);
     }
   }, [load]);
 
-  return { loaded, refreshing, onRefresh };
+  return { loaded, refreshing, onRefresh, error };
 }

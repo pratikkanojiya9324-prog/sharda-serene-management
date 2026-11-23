@@ -51,8 +51,8 @@ export default function AdminComplaintsScreen() {
     setComplaints(c.data ?? []);
     setLabels(flatLabels(flats.data));
   }, [societyId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
-  const state = screenState({ loaded, error });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error: error ?? loadFailure });
 
   const count = (s: Status) => complaints.filter((c) => c.status === s).length;
   const shown = filter === 'all' ? complaints : complaints.filter((c) => c.status === filter);
@@ -69,7 +69,7 @@ export default function AdminComplaintsScreen() {
       {societyError ? <Banner text={societyError} /> : null}
       {error && state === 'ready' ? <Banner text={error} /> : null}
       {state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         societyError ? null : <Loading />
       ) : (

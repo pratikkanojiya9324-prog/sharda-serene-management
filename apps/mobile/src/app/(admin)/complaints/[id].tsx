@@ -59,7 +59,7 @@ export default function AdminComplaintScreen() {
       if (r.data) setFlatAccounts(new Set(r.data.map((x) => x.profile_id)));
     }
   }, [id]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load);
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load);
   const photoUrl = useSignedUrl('complaint-photos', complaint?.photo_path);
 
   async function changeStatus(next: Status) {
@@ -103,7 +103,7 @@ export default function AdminComplaintScreen() {
       <Screen edges={['top']}>
         <Header title="Complaint" onBack={back} />
         {!loaded ? (
-          <Loading />
+          loadFailure ? <Banner text={loadFailure} /> : <Loading />
         ) : error ? (
           <Banner text={error} />
         ) : (

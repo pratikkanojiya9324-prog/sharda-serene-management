@@ -73,8 +73,8 @@ export default function AdminBillsScreen() {
     setError(null);
     setBills(b.data);
   }, [societyId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
-  const state = screenState({ loaded, error });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error: error ?? loadFailure });
 
   async function selectMonth(next: string) {
     if (next === monthRef.current) return;
@@ -116,7 +116,7 @@ export default function AdminBillsScreen() {
       {societyError ? <Banner text={societyError} /> : null}
       {error && state === 'ready' ? <Banner text={error} /> : null}
       {state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         societyError ? null : <Loading />
       ) : !months.length ? (

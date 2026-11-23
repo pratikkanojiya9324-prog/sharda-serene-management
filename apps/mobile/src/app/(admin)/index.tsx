@@ -40,8 +40,8 @@ export default function AdminNoticesScreen() {
     setError(null);
     setNotices(sortNotices(data ?? []));
   }, [societyId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!societyId);
-  const state = screenState({ loaded, error });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!societyId);
+  const state = screenState({ loaded, error: error ?? loadFailure });
 
   async function togglePin(n: Notice) {
     if (busyId) return;
@@ -116,7 +116,7 @@ export default function AdminNoticesScreen() {
       {societyError ? <Banner text={societyError} /> : null}
       {error && state === 'ready' ? <Banner text={error} /> : null}
       {state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         societyError ? null : <Loading />
       ) : notices.length ? (

@@ -43,8 +43,8 @@ export default function HistoryScreen() {
     [flatId],
   );
   const firstPage = useCallback(() => fetchPage(0), [fetchPage]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(firstPage, !!flatId);
-  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(firstPage, !!flatId);
+  const state = screenState({ loaded, error: error ?? loadFailure, needsFlat: true, flatLoading, hasFlat: !!flat });
 
   async function more() {
     setLoadingMore(true);
@@ -63,7 +63,7 @@ export default function HistoryScreen() {
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         <Loading />
       ) : visits.length ? (

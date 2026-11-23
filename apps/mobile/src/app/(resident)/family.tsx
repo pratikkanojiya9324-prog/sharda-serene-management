@@ -38,8 +38,8 @@ export default function FamilyScreen() {
     setError(null);
     setMembers(data ?? []);
   }, [flatId]);
-  const { loaded, refreshing, onRefresh } = useFocusLoad(load, !!flatId);
-  const state = screenState({ loaded, error, needsFlat: true, flatLoading, hasFlat: !!flat });
+  const { loaded, refreshing, onRefresh, error: loadFailure } = useFocusLoad(load, !!flatId);
+  const state = screenState({ loaded, error: error ?? loadFailure, needsFlat: true, flatLoading, hasFlat: !!flat });
   return (
     <Screen scroll edges={['top']} refreshing={refreshing} onRefresh={onRefresh}>
       <Header
@@ -52,7 +52,7 @@ export default function FamilyScreen() {
       {state === 'no_flat' ? (
         <NoFlatState message={flatError} onRetry={reload} />
       ) : state === 'error' ? (
-        <ErrorState message={error ?? ''} onRetry={onRefresh} />
+        <ErrorState message={error ?? loadFailure ?? ''} onRetry={onRefresh} />
       ) : state === 'loading' ? (
         <Loading />
       ) : members.length ? (
