@@ -13,6 +13,11 @@ const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/visits', label: 'Visitor log', icon: 'clipboard' },
   { to: '/daily-help', label: 'Daily help', icon: 'users' },
   { to: '/parcels', label: 'Parcels', icon: 'paperclip' },
+  { to: '/amenities', label: 'Amenities', icon: 'door' },
+  { to: '/events', label: 'Events', icon: 'clock' },
+  { to: '/documents', label: 'Documents', icon: 'download' },
+  { to: '/emergency-contacts', label: 'Emergency contacts', icon: 'users' },
+  { to: '/sos', label: 'SOS', icon: 'alert' },
 ];
 
 export default function Layout({

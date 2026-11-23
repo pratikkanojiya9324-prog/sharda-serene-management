@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultClosesAt, istLocalToIso, resultRows, turnoutText } from './polls';
+import { defaultClosesAt, resultRows, turnoutText } from './polls';
 
 const options = [
   { id: 'a', label: 'Yes' },
@@ -41,14 +41,5 @@ describe('defaultClosesAt', () => {
   it('uses the IST date, not the UTC date', () => {
     // 20:00 UTC on 23 Nov is already 24 Nov in IST.
     expect(defaultClosesAt(new Date('2026-11-23T20:00:00Z'))).toBe('2026-12-01T21:00');
-  });
-});
-
-describe('istLocalToIso', () => {
-  it('reads a datetime-local value as IST', () => {
-    expect(istLocalToIso('2026-11-30T21:00')).toBe('2026-11-30T15:30:00.000Z');
-  });
-  it('returns null for an empty or invalid value', () => {
-    expect(istLocalToIso('')).toBeNull();
   });
 });

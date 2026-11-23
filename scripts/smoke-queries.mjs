@@ -304,6 +304,47 @@ if (polls?.length) {
   check('admin  Polls      poll_results', await ac.rpc('poll_results', { p_poll_id: polls[0].id }));
 }
 
+// --- admin + resident: amenities, bookings, events, documents, SOS, contacts (Round 3) ----
+check(
+  'admin  Amenities  amenities AMENITY_SELECT',
+  await ac.from('amenities').select(sel('AMENITY_SELECT', S.AMENITY_SELECT)).eq('society_id', societyId).order('name'),
+);
+check(
+  'admin  Amenities  amenity_bookings BOOKING_SELECT',
+  await ac.from('amenity_bookings').select(sel('BOOKING_SELECT', S.BOOKING_SELECT)).eq('society_id', societyId).order('start_at', { ascending: false }).limit(500),
+);
+check(
+  'flat   Amenities  amenity_bookings BOOKING_SELECT',
+  await resident.client.from('amenity_bookings').select(sel('BOOKING_SELECT', S.BOOKING_SELECT)).eq('flat_id', flatId).order('start_at', { ascending: false }),
+);
+const events = check(
+  'admin  Events     events EVENT_SELECT',
+  await ac.from('events').select(sel('EVENT_SELECT', S.EVENT_SELECT)).eq('society_id', societyId).order('starts_at', { ascending: false }),
+);
+if (events?.length) {
+  check('admin  Events     event_summary', await ac.rpc('event_summary', { p_event_id: events[0].id }));
+}
+check(
+  'admin  Documents  documents DOCUMENT_SELECT',
+  await ac.from('documents').select(sel('DOCUMENT_SELECT', S.DOCUMENT_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }),
+);
+check(
+  'flat   Documents  documents DOCUMENT_SELECT',
+  await resident.client.from('documents').select(sel('DOCUMENT_SELECT', S.DOCUMENT_SELECT)).order('created_at', { ascending: false }),
+);
+check(
+  'admin  Contacts   emergency_contacts EMERGENCY_CONTACT_SELECT',
+  await ac.from('emergency_contacts').select(sel('EMERGENCY_CONTACT_SELECT', S.EMERGENCY_CONTACT_SELECT)).eq('society_id', societyId).order('sort_order').order('name'),
+);
+check(
+  'flat   Contacts   emergency_contacts EMERGENCY_CONTACT_SELECT',
+  await resident.client.from('emergency_contacts').select(sel('EMERGENCY_CONTACT_SELECT', S.EMERGENCY_CONTACT_SELECT)).order('sort_order').order('name'),
+);
+check(
+  'admin  SosLog     sos_alerts SOS_SELECT',
+  await ac.from('sos_alerts').select(sel('SOS_SELECT', S.SOS_SELECT)).eq('society_id', societyId).order('created_at', { ascending: false }).limit(500),
+);
+
 // --- coverage: every exported select constant must have been run ----------------
 for (const name of [...Object.keys(S), ...Object.keys(A)]) {
   if (!name.endsWith('_SELECT')) continue;

@@ -1,7 +1,6 @@
-// Pure helpers for the polls page. Times are Asia/Kolkata (UTC+5:30, no DST).
+// Pure helpers for the polls page. Times are Asia/Kolkata (see ist.ts).
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-const DAY = 24 * 60 * 60 * 1000;
+import { DAY_MS, IST_OFFSET_MS } from './ist';
 
 export type PollOption = { id: string; label: string };
 export type ResultRow = { label: string; count: number; pct: number };
@@ -22,14 +21,7 @@ export function turnoutText(voted: number, total: number): string {
 
 /** 7 days ahead at 21:00 IST, as a `datetime-local` value ("2026-11-30T21:00"). */
 export function defaultClosesAt(now: Date): string {
-  const d = new Date(now.getTime() + IST_OFFSET_MS + 7 * DAY);
+  const d = new Date(now.getTime() + IST_OFFSET_MS + 7 * DAY_MS);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T21:00`;
-}
-
-/** A `datetime-local` value read as IST, as an ISO instant; null when empty or invalid. */
-export function istLocalToIso(value: string): string | null {
-  if (!value) return null;
-  const t = new Date(`${value}:00+05:30`);
-  return Number.isNaN(t.getTime()) ? null : t.toISOString();
 }

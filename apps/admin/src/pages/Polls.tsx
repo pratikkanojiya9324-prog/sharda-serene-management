@@ -4,7 +4,8 @@ import { useToast } from '../components/Toast';
 import { Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Pill, Table, Textarea, td, th } from '../components/ui';
 import { friendlyError } from '../lib/errors';
 import { dateTime } from '../lib/format';
-import { defaultClosesAt, istLocalToIso, resultRows, turnoutText, type PollOption } from '../lib/polls';
+import { istLocalToIso } from '../lib/ist';
+import { defaultClosesAt, resultRows, turnoutText, type PollOption } from '../lib/polls';
 import { SOCIETY_ID, supabase } from '../lib/supabase';
 
 interface Poll {

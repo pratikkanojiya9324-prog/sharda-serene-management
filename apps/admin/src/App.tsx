@@ -5,15 +5,20 @@ import { ADMIN_SOCIETIES_SELECT } from '@society-gate/shared';
 import Layout from './components/Layout';
 import { Button, Spinner } from './components/ui';
 import { SOCIETY_ID, supabase } from './lib/supabase';
+import Amenities from './pages/Amenities';
 import Bills from './pages/Bills';
 import Complaints from './pages/Complaints';
 import Dashboard from './pages/Dashboard';
 import DailyHelp from './pages/DailyHelp';
+import Documents from './pages/Documents';
+import EmergencyContacts from './pages/EmergencyContacts';
+import Events from './pages/Events';
 import Flats from './pages/Flats';
 import Login from './pages/Login';
 import Notices from './pages/Notices';
 import Parcels from './pages/Parcels';
 import Polls from './pages/Polls';
+import SosLog from './pages/SosLog';
 import Staff from './pages/Staff';
 import VisitorLog from './pages/VisitorLog';
 
@@ -132,6 +137,11 @@ export default function App() {
         <Route path="/visits" element={<VisitorLog />} />
         <Route path="/daily-help" element={<DailyHelp />} />
         <Route path="/parcels" element={<Parcels />} />
+        <Route path="/amenities" element={<Amenities />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/documents" element={<Documents />} />
+        <Route path="/emergency-contacts" element={<EmergencyContacts />} />
+        <Route path="/sos" element={<SosLog userName={ctx.userName} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>
