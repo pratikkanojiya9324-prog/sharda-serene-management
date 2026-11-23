@@ -21,8 +21,8 @@ const HIDDEN = ['notices/new'];
 // In-app admin: Notices (post / pin / delete), Polls (a list → new / detail stack), Complaints (a list → detail
 // stack), Bills (by month, mark paid) and More.
 function AdminSosBanner() {
-  const { societyId } = useAdminSociety();
-  return <SosBanner societyId={societyId} />;
+  const { societyId, error, reload } = useAdminSociety();
+  return <SosBanner societyId={societyId} societyError={error} onRetrySociety={reload} />;
 }
 
 export default function AdminLayout() {

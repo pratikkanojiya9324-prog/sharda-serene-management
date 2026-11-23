@@ -43,16 +43,14 @@ export default function AdminPollsScreen() {
     }
     const rows = data ?? [];
     // Turnout comes from poll_results (the votes table itself is not readable by the office).
+    // One failed call must not fail the list: that row shows a dash.
     const res = await Promise.all(rows.map((p) => supabase.rpc('poll_results', { p_poll_id: p.id })));
-    const failed = res.find((r) => r.error);
-    if (failed?.error) {
-      setError(reportError(failed.error));
-      return false;
-    }
     const next: Record<string, string> = {};
     rows.forEach((p, i) => {
-      const r = parseResults(res[i].data);
-      if (r) next[p.id] = turnoutText(r.votedFlats, r.totalFlats);
+      const { data: d, error: e } = res[i];
+      if (e) console.warn('poll_results failed', p.id, e.message);
+      const r = e ? null : parseResults(d);
+      next[p.id] = r ? turnoutText(r.votedFlats, r.totalFlats) : '—';
     });
     setError(null);
     setPolls(rows);
@@ -79,7 +77,9 @@ export default function AdminPollsScreen() {
         </View>
         <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
           <Pill label={closesLabel(p, now)} tone={isOpen ? 'info' : 'neutral'} icon={isOpen ? 'time-outline' : 'lock-closed'} />
-          {turnout[p.id] ? <Pill label={turnout[p.id]} tone="success" icon="people" /> : null}
+          {turnout[p.id] ? (
+            <Pill label={turnout[p.id]} tone={turnout[p.id] === '—' ? 'neutral' : 'success'} icon="people" />
+          ) : null}
         </View>
       </Card>
     );

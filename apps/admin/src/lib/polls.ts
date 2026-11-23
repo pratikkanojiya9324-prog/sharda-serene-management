@@ -9,7 +9,7 @@ export type ResultRow = { label: string; count: number; pct: number };
 export function resultRows(options: PollOption[], counts: Record<string, number> | null, total: number): ResultRow[] {
   return options.map((o) => {
     const count = counts?.[o.id] ?? 0;
-    return { label: o.label, count, pct: total ? Math.round((count / total) * 100) : 0 };
+    return { label: o.label, count, pct: total > 0 ? Math.min(100, Math.round((count / total) * 100)) : 0 };
   });
 }
 

@@ -54,7 +54,7 @@ export const AMENITY_SELECT =
 
 /** amenity bookings: booking with amenity name and the flat label. */
 export const BOOKING_SELECT =
-  'id, amenity_id, flat_id, start_at, end_at, status, booked_by_name, decided_at, reject_reason, created_at, amenities(name), flats(number, towers!flats_tower_id_fkey(building, name))' as const;
+  'id, amenity_id, flat_id, start_at, end_at, status, booked_by_name, decided_at, reject_reason, created_at, amenities(name, slot_minutes), flats(number, towers!flats_tower_id_fkey(building, name))' as const;
 
 /** SOS alerts (resident + guard + admin): alert with the flat label. */
 export const SOS_SELECT =

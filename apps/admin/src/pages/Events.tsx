@@ -48,7 +48,7 @@ export default function Events() {
       .select(EVENT_SELECT)
       .eq('society_id', SOCIETY_ID)
       .order('starts_at', { ascending: false });
-    if (err) return setError(err.message);
+    if (err) return setError(friendlyError(err));
     setError(null);
     const rows = (data ?? []) as EventRow[];
     setEvents(rows);

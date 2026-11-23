@@ -27,6 +27,7 @@ const ERROR_TEXT: Record<string, string> = {
   outside_hours: "It's closed at that time",
   bad_slot: 'Pick one of the listed slots',
   slot_taken: 'Someone just booked this slot — pick another',
+  has_bookings: "Timings can't change while there are upcoming bookings",
   booking_limit: 'Your flat already has the maximum upcoming bookings for this',
   amenity_inactive: 'This is not open for booking right now',
   already_started: 'It has already started',

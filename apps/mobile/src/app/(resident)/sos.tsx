@@ -141,6 +141,10 @@ export default function SosScreen() {
   }
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/(resident)'));
+  // Always one tap from the society's emergency numbers (the failed state lists them inline).
+  const numbersButton = (
+    <Button title="Emergency numbers" variant="secondary" icon="call" onPress={() => router.push('/(resident)/emergency')} />
+  );
 
   if (!flat && !loading) {
     return (
@@ -194,6 +198,7 @@ export default function SosScreen() {
           </View>
           {cancelError ? <Banner text={cancelError} /> : null}
           <Button title="Cancel — false alarm" variant="danger" icon="close-circle" loading={cancelling} onPress={cancelAlert} />
+          {numbersButton}
         </>
       ) : null}
 
@@ -205,6 +210,7 @@ export default function SosScreen() {
             <Text style={[type.body, { color: colors.textMuted }]}>By {alert.resolved_by_name}</Text>
           ) : null}
           {alert.resolved_note ? <Text style={[type.body, { color: colors.textMuted }]}>{alert.resolved_note}</Text> : null}
+          {numbersButton}
           <Button title="Back to home" variant="secondary" onPress={back} />
         </Card>
       ) : null}
@@ -214,6 +220,7 @@ export default function SosScreen() {
           <Text style={[type.body, { color: colors.textMuted }]}>
             No SOS is active. To send one, hold the SOS button on Home for 2 seconds.
           </Text>
+          {numbersButton}
           <Button title="Back to home" variant="secondary" onPress={back} />
         </Card>
       ) : null}

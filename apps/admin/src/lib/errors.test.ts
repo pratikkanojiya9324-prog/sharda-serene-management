@@ -15,6 +15,7 @@ describe('friendlyError', () => {
     expect(friendlyError('invalid_limit: 11')).toBe('Choose a number from 1 to 10');
     expect(friendlyError('slot_taken')).toBe('Someone just booked this slot — pick another');
     expect(friendlyError('outside_hours')).toBe("It's closed at that time");
+    expect(friendlyError({ message: 'has_bookings' })).toBe("Timings can't change while there are upcoming bookings");
   });
   it('passes unknown messages through', () => {
     expect(friendlyError(new Error('boom'))).toBe('boom');

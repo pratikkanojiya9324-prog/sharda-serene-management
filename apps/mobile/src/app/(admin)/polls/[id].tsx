@@ -139,10 +139,17 @@ export default function AdminPollScreen() {
           </Card>
 
           <Card style={{ gap: space.lg }}>
-            <PollResults
-              bars={resultBars(parseOptions(poll.options), results.counts, [])}
-              turnout={turnoutText(results.votedFlats, results.totalFlats)}
-            />
+            {results.counts ? (
+              <PollResults
+                bars={resultBars(parseOptions(poll.options), results.counts, [], results.votedFlats)}
+                turnout={turnoutText(results.votedFlats, results.totalFlats)}
+              />
+            ) : (
+              <>
+                <Text style={[type.label, { color: colors.text }]}>{turnoutText(results.votedFlats, results.totalFlats)}</Text>
+                <Text style={[type.body, { color: colors.textMuted }]}>Results appear when voting closes.</Text>
+              </>
+            )}
           </Card>
 
           <SectionTitle title="Not voted yet" count={results.notVoted?.length || undefined} />

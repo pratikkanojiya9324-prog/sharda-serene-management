@@ -18,6 +18,8 @@ interface Doc {
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const BUCKET = 'society-docs';
+// No SVG: it can carry script. The bucket allows the same list.
+const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 const categoryLabel = (v: string) => DOC_CATEGORIES.find((c) => c.value === v)?.label ?? v;
 
 export default function Documents() {
@@ -35,7 +37,7 @@ export default function Documents() {
       .select(DOCUMENT_SELECT)
       .eq('society_id', SOCIETY_ID)
       .order('created_at', { ascending: false });
-    if (err) return setError(err.message);
+    if (err) return setError(friendlyError(err));
     setError(null);
     setDocs((data ?? []) as Doc[]);
   }, []);
@@ -183,7 +185,7 @@ function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: ()
   function pickFile(f: File | undefined) {
     setError(null);
     if (!f) return setFile(null);
-    if (f.type !== 'application/pdf' && !f.type.startsWith('image/')) return setError('Choose a PDF or an image.');
+    if (!ACCEPTED_TYPES.includes(f.type)) return setError('Choose a PDF, JPEG, PNG or WebP file.');
     if (f.size > MAX_BYTES) return setError('Files can be at most 10 MB.');
     setFile(f);
     setTitle((t) => t || f.name.replace(/\.[^.]+$/, '').slice(0, 120));
@@ -202,7 +204,7 @@ function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: ()
     const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
     if (up.error) {
       setBusy(false);
-      return setError(`Upload failed: ${up.error.message}`);
+      return setError(`Upload failed: ${friendlyError(up.error)}`);
     }
     const { error: err } = await supabase.rpc('add_document', { p_title: title.trim(), p_category: category, p_file_path: path, p_file_kind: kind });
     if (err) {
@@ -236,7 +238,7 @@ function UploadModal({ open, onClose, onUploaded }: { open: boolean; onClose: ()
           <label className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">
             <Icon name="paperclip" className="h-4 w-4" />
             <span className="flex-1 truncate">{file ? file.name : 'Choose a file'}</span>
-            <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
+            <input type="file" accept={ACCEPTED_TYPES.join(',')} className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
           </label>
         </Field>
         <Field label="Title">

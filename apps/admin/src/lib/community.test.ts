@@ -13,7 +13,11 @@ describe('formatSlot', () => {
     // 19:00 UTC on 30 Nov is 00:30 on 1 Dec in IST
     expect(formatSlot('2026-11-30T19:00:00Z', '2026-11-30T20:00:00Z')).toBe('Tue 1 Dec · 12:30 – 1:30 AM');
   });
-  it('names both days for an all-day slot', () => {
+  it('shows a full-day booking as open to close', () => {
+    // party hall 9:00-23:00 IST: end_at is the close time, not start + 24 h
+    expect(formatSlot('2026-11-30T03:30:00Z', '2026-11-30T17:30:00Z')).toBe('Mon 30 Nov · 9:00 AM – 11:00 PM');
+  });
+  it('names both days for a slot spanning midnight', () => {
     expect(formatSlot('2026-11-29T18:30:00Z', '2026-11-30T18:30:00Z')).toBe('Mon 30 Nov, 12:00 AM – Tue 1 Dec, 12:00 AM');
   });
 });

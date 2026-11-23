@@ -84,7 +84,7 @@ export default function Amenities() {
         .limit(BOOKINGS_LIMIT),
     ]);
     const err = a.error ?? b.error;
-    if (err) return setError(err.message);
+    if (err) return setError(friendlyError(err));
     setError(null);
     setAmenities((a.data ?? []) as unknown as Amenity[]);
     setBookings((b.data ?? []) as unknown as Booking[]);

@@ -38,16 +38,16 @@ export function resultBars(
   options: PollOption[],
   counts: Record<string, number> | null,
   myOptionIds: string[],
+  votedFlats: number,
 ): ResultBar[] {
-  const total = options.reduce((sum, o) => sum + (counts?.[o.id] ?? 0), 0);
   return options.map((o) => {
     const count = counts?.[o.id] ?? 0;
     return {
       id: o.id,
       label: o.label,
       count,
-      // Share of all choices made (multi-choice polls can pass 100% in sum).
-      pct: total ? Math.round((count / total) * 100) : 0,
+      // Share of flats that voted, as on the website (multi-choice can pass 100% in sum).
+      pct: votedFlats > 0 ? Math.min(100, Math.round((count / votedFlats) * 100)) : 0,
       mine: myOptionIds.includes(o.id),
     };
   });

@@ -63,7 +63,7 @@ export default function ResidentHome() {
         .order('starts_at')
         .limit(1),
     ]);
-    const err = v.error ?? parcels.error ?? polls.error ?? votes.error ?? events.error;
+    const err = v.error ?? parcels.error;
     if (err || helpers.error !== null) {
       setError(err ? reportError(err) : helpers.error);
       return false;
@@ -71,9 +71,13 @@ export default function ResidentHome() {
     setError(null);
     setVisits(v.data ?? []);
     setParcelCount(parcels.count ?? 0);
+    // The poll and event cards are extras: if they fail, hide them and keep Home working.
+    const pollErr = polls.error ?? votes.error;
+    if (pollErr) console.warn('Home: polls card hidden', pollErr.message);
     const votedIds = new Set((votes.data ?? []).map((r) => r.poll_id));
-    setPollsWaiting((polls.data ?? []).filter((p) => !votedIds.has(p.id)).length);
-    setNextEvent(events.data?.[0] ?? null);
+    setPollsWaiting(pollErr ? 0 : (polls.data ?? []).filter((p) => !votedIds.has(p.id)).length);
+    if (events.error) console.warn('Home: events card hidden', events.error.message);
+    setNextEvent(events.error ? null : (events.data?.[0] ?? null));
     setInside(
       helpers.helpers
         .filter((h) => h.active)

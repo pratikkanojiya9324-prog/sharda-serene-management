@@ -70,8 +70,9 @@ create policy documents_select on public.documents for select to authenticated
 -- ---------------------------------------------------------------------------
 -- Storage: private society-docs bucket (CASE-guarded uuid cast, as in 0009)
 -- ---------------------------------------------------------------------------
-insert into storage.buckets (id, name, public)
-values ('society-docs', 'society-docs', false)
+insert into storage.buckets (id, name, public, allowed_mime_types)
+values ('society-docs', 'society-docs', false,
+        array['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
 create policy society_docs_admin_insert on storage.objects

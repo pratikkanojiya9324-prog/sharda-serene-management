@@ -1,6 +1,6 @@
 -- Migration 0020: secret one-vote-per-flat polls.
 begin;
-select plan(57);
+select plan(60);
 
 insert into societies (id, name) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Society A'),
@@ -105,7 +105,8 @@ select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-0000000
 select ok((poll_results((select id from p1))->'not_voted') @> '"B1-A-102"'::jsonb, 'not_voted has B label');
 select ok(not ((poll_results((select id from p1))->'not_voted') @> '"B1-A-101"'::jsonb), 'not_voted lacks A label');
 select is((poll_results((select id from p1))->>'total_flats')::int, 3, 'total_flats counts only flats with residents');
-select is((poll_results((select id from p1))->'counts'->>(select o1::text from p1))::int, 1, 'admin sees counts');
+select is((poll_results((select id from p1))->'counts'), 'null'::jsonb, 'admin gets no counts while open');
+select is((poll_results((select id from p1))->>'voted_flats')::int, 1, 'admin sees turnout while open');
 
 -- ---------------------------------------------------------------- reminders
 select lives_ok($$select remind_poll((select id from p1))$$, 'first reminder ok');
@@ -121,6 +122,7 @@ select throws_ok($$select poll_results((select id from p1))$$, 'P0001', 'not_aut
 -- ---------------------------------------------------------------- closing
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000ad01","role":"authenticated"}', true);
 select lives_ok($$select close_poll((select id from p1))$$, 'admin closes');
+select is((poll_results((select id from p1))->'counts'->>(select o1::text from p1))::int, 1, 'admin sees counts after close');
 select throws_ok($$select close_poll((select id from p1))$$, 'P0001', 'poll_closed', 'close again rejected');
 select throws_ok($$select remind_poll((select id from p1))$$, 'P0001', 'poll_closed', 'remind closed rejected');
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000e102","role":"authenticated"}', true);
@@ -136,10 +138,17 @@ select throws_ok($$select vote_poll((select id from p2), 'aaaaaaaa-0000-0000-000
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000ad01","role":"authenticated"}', true);
 select throws_ok($$select close_poll((select id from p2))$$, 'P0001', 'poll_closed', 'close past-deadline poll rejected');
 
+-- turnout: a vote from a flat that no longer has residents is not counted
+reset role;
+delete from flat_residents where flat_id = 'aaaaaaaa-0000-0000-0000-0000000000f1';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000ad01","role":"authenticated"}', true);
+select is((poll_results((select id from p1))->>'voted_flats')::int, 0, 'voted_flats ignores flats without residents');
+
 -- ---------------------------------------------------------------- delete cascades
 select lives_ok($$select delete_poll((select id from p1))$$, 'admin deletes poll');
 reset role;
-select is((select count(*)::int from poll_votes), 0, 'votes cascade on delete');
+select is((select count(*)::int from poll_votes where poll_id = (select id from p1)), 0, 'votes cascade on delete');
 
 select * from finish();
 rollback;

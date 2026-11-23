@@ -28,7 +28,7 @@ export default function EmergencyContacts() {
       .eq('society_id', SOCIETY_ID)
       .order('sort_order')
       .order('name');
-    if (err) return setError(err.message);
+    if (err) return setError(friendlyError(err));
     setError(null);
     setContacts((data ?? []) as Contact[]);
   }, []);

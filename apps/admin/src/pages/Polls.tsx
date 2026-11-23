@@ -68,7 +68,7 @@ export default function Polls() {
       .select(POLL_SELECT)
       .eq('society_id', SOCIETY_ID)
       .order('created_at', { ascending: false });
-    if (err) return setError(err.message);
+    if (err) return setError(friendlyError(err));
     setError(null);
     const rows = (data ?? []) as Poll[];
     setPolls(rows);
@@ -232,21 +232,25 @@ function PollPanel({ poll, onClose, onChanged }: { poll: Poll; onClose: () => vo
         {results && (
           <>
             <p className="text-sm font-medium text-slate-800">{turnoutText(results.voted, results.total)}</p>
-            <div className="space-y-3">
-              {rows.map((r) => (
-                <div key={r.label}>
-                  <div className="mb-1 flex justify-between gap-3 text-sm">
-                    <span className="text-slate-800">{r.label}</span>
-                    <span className="whitespace-nowrap text-slate-500">
-                      {r.count} · {r.pct}%
-                    </span>
+            {results.counts ? (
+              <div className="space-y-3">
+                {rows.map((r) => (
+                  <div key={r.label}>
+                    <div className="mb-1 flex justify-between gap-3 text-sm">
+                      <span className="text-slate-800">{r.label}</span>
+                      <span className="whitespace-nowrap text-slate-500">
+                        {r.count} · {r.pct}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-brand-700" style={{ width: `${r.pct}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-brand-700" style={{ width: `${r.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Results appear when voting closes.</p>
+            )}
             <div>
               <p className="mb-2 text-sm font-medium text-slate-800">Not voted yet ({results.notVoted.length})</p>
               {results.notVoted.length === 0 ? (

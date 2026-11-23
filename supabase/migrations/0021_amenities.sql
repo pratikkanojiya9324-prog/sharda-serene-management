@@ -110,6 +110,22 @@ begin
        coalesce(p_requires_approval, false), v_max, v_fee, coalesce(p_active, true))
     returning * into v_row;
   else
+    -- The slot grid may not move under upcoming bookings (they would fall off it).
+    -- Lock the row first so a concurrent book_amenity (for share) cannot slip in.
+    perform 1 from public.amenities where id = p_id and society_id = v_society for update;
+    if exists (
+      select 1 from public.amenities a
+       where a.id = p_id and a.society_id = v_society
+         and (a.slot_minutes <> p_slot_minutes or a.open_time <> p_open_time
+              or a.close_time <> p_close_time)
+         and exists (
+           select 1 from public.amenity_bookings b
+            where b.amenity_id = a.id and b.status in ('pending', 'confirmed')
+              and b.end_at > now()
+         )
+    ) then
+      raise exception 'has_bookings';
+    end if;
     update public.amenities set
       name = v_name, description = v_description, open_time = p_open_time,
       close_time = p_close_time, slot_minutes = p_slot_minutes,
@@ -180,7 +196,10 @@ begin
   end if;
 
   return query
-  select s.s_at, s.s_at + make_interval(mins => v_am.slot_minutes),
+  select s.s_at,
+    case when v_am.slot_minutes = 1440
+         then (p_date + v_am.close_time) at time zone 'Asia/Kolkata'
+         else s.s_at + make_interval(mins => v_am.slot_minutes) end,
     case
       when s.s_at <= now() then 'past'
       when b.id is null then 'free'
@@ -220,7 +239,8 @@ declare
   v_today date := (now() at time zone 'Asia/Kolkata')::date;
   v_row public.amenity_bookings;
 begin
-  select * into v_am from public.amenities where id = p_amenity_id;
+  -- for share: an upsert_amenity grid change (for update) cannot race this booking
+  select * into v_am from public.amenities where id = p_amenity_id for share;
   select society_id into v_flat_society from public.flats where id = p_flat_id;
   if v_am.id is null or v_flat_society is null or v_flat_society <> v_am.society_id
      or p_start_at is null or not public.is_flat_resident(p_flat_id) then
@@ -266,7 +286,10 @@ begin
       (society_id, amenity_id, flat_id, start_at, end_at, status, booked_by_name)
     values
       (v_am.society_id, v_am.id, p_flat_id, p_start_at,
-       p_start_at + make_interval(mins => v_am.slot_minutes),
+       -- a full-day booking runs open to close, not 24 hours
+       case when v_am.slot_minutes = 1440
+            then (v_date + v_am.close_time) at time zone 'Asia/Kolkata'
+            else p_start_at + make_interval(mins => v_am.slot_minutes) end,
        case when v_am.requires_approval then 'pending'::public.booking_status
             else 'confirmed'::public.booking_status end,
        v_name)

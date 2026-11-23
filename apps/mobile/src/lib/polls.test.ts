@@ -62,19 +62,25 @@ describe('resultBars', () => {
     { id: 'b', label: 'No' },
   ];
   it('is all zero without counts', () => {
-    expect(resultBars(options, null, [])).toEqual([
+    expect(resultBars(options, null, [], 0)).toEqual([
       { id: 'a', label: 'Yes', count: 0, pct: 0, mine: false },
       { id: 'b', label: 'No', count: 0, pct: 0, mine: false },
     ]);
   });
-  it('computes whole-number percentages and flags mine', () => {
-    expect(resultBars(options, { a: 3, b: 1 }, ['a'])).toEqual([
+  it('computes whole-number percentages of voted flats and flags mine', () => {
+    expect(resultBars(options, { a: 3, b: 1 }, ['a'], 4)).toEqual([
       { id: 'a', label: 'Yes', count: 3, pct: 75, mine: true },
       { id: 'b', label: 'No', count: 1, pct: 25, mine: false },
     ]);
   });
+  it('divides by voted flats, so multi-choice shares can pass 100% in sum (same as the website)', () => {
+    expect(resultBars(options, { a: 2, b: 1 }, [], 2).map((b) => b.pct)).toEqual([100, 50]);
+  });
+  it('never shows more than 100%', () => {
+    expect(resultBars(options, { a: 3, b: 0 }, [], 2).map((b) => b.pct)).toEqual([100, 0]);
+  });
   it('is 0 when nobody voted', () => {
-    expect(resultBars(options, { a: 0, b: 0 }, []).map((b) => b.pct)).toEqual([0, 0]);
+    expect(resultBars(options, { a: 0, b: 0 }, [], 0).map((b) => b.pct)).toEqual([0, 0]);
   });
 });
 

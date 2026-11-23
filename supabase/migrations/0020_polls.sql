@@ -182,7 +182,9 @@ declare
   v_valid uuid[];
   v_name text;
 begin
-  select * into v_poll from public.polls where id = p_poll_id;
+  -- for share: close_poll (for update) waits for in-flight votes, and a vote racing
+  -- a close sees the closed row, so no vote lands after the poll is closed.
+  select * into v_poll from public.polls where id = p_poll_id for share;
   select society_id into v_flat_society from public.flats where id = p_flat_id;
   if v_poll.id is null or v_flat_society is null or v_flat_society <> v_poll.society_id
      or not public.is_flat_resident(p_flat_id) then
@@ -250,9 +252,15 @@ begin
   if v_flat_ok then
     select * into v_my from public.poll_votes where poll_id = p_poll_id and flat_id = p_flat_id;
   end if;
-  v_show_counts := v_admin or v_my.poll_id is not null or not v_open;
+  -- Secret while open: counts only for a flat that has voted, or once voting has
+  -- closed. Admins get turnout and not_voted while open, but no counts.
+  v_show_counts := v_my.poll_id is not null or not v_open;
 
-  select count(*)::int into v_voted_flats from public.poll_votes where poll_id = p_poll_id;
+  -- Same base as total_flats: only flats that currently have residents.
+  select count(*)::int into v_voted_flats
+    from public.poll_votes v
+   where v.poll_id = p_poll_id
+     and exists (select 1 from public.flat_residents fr where fr.flat_id = v.flat_id);
   select count(distinct f.id)::int into v_total_flats
     from public.flats f
     join public.flat_residents fr on fr.flat_id = f.id

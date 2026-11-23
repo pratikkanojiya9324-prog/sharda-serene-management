@@ -1,6 +1,6 @@
 -- Migration 0021: amenity booking with slot grid and approvals.
 begin;
-select plan(66);
+select plan(72);
 
 insert into societies (id, name) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'Society A'),
@@ -164,6 +164,14 @@ create temp table hb2 as select id from amenity_bookings where status = 'pending
 grant select on hb2 to authenticated;
 select is((select status::text from decide_booking((select id from hb2), true)), 'confirmed', 'admin approves');
 select is((select decided_by from amenity_bookings where id = (select id from hb2)), 'aaaaaaaa-0000-0000-0000-00000000ad01'::uuid, 'decided_by recorded');
+
+-- ---------------------------------------------------------------- full-day end_at + grid changes
+select is((select end_at from amenity_bookings where id = (select id from hb2)), pg_temp.ist(2,'22:00'), 'full-day booking ends at close time');
+select is((select end_at from amenity_slots((select id from am where n='hall'), (now() at time zone 'Asia/Kolkata')::date + 2)), pg_temp.ist(2,'22:00'), 'full-day slot ends at close time');
+select throws_ok($$select upsert_amenity((select id from am where n='hall'),'Hall','Big','08:00','22:00',60,true,2,'Rs 2000',true)$$, 'P0001', 'has_bookings', 'slot change with upcoming booking');
+select throws_ok($$select upsert_amenity((select id from am where n='hall'),'Hall','Big','08:00','23:00',1440,true,2,'Rs 2000',true)$$, 'P0001', 'has_bookings', 'close time change with upcoming booking');
+select is((select name from upsert_amenity((select id from am where n='hall'),'Party Hall','Big','08:00','22:00',1440,false,3,'Rs 2500',true)), 'Party Hall', 'other edits allowed with upcoming booking');
+select is((select slot_minutes from upsert_amenity((select id from amenities where name = 'Ten'),'Ten',null,'07:00','21:00',120,false,10,null,true)), 120, 'timings change when no upcoming bookings');
 
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-00000000a901","role":"authenticated"}', true);
 select ok((select count(*) from amenity_bookings) >= 6, 'guard sees society bookings');

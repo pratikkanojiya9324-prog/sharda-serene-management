@@ -47,7 +47,7 @@ export default function SosLog({ userName }: { userName: string | null }) {
       .eq('society_id', SOCIETY_ID)
       .order('created_at', { ascending: false })
       .limit(LIMIT);
-    if (err) return setError(err.message);
+    if (err) return setError(friendlyError(err));
     setError(null);
     setAlerts((data ?? []) as unknown as Alert[]);
     setNow(new Date());

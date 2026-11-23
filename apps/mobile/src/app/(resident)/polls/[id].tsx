@@ -8,7 +8,6 @@ import { PollResults } from '@/components/PollResults';
 import { Loading, NoFlatState, useFocusLoad } from '@/components/resident';
 import { getActorName } from '@/lib/actor';
 import { reportError } from '@/lib/errors';
-import { formatDateTime } from '@/lib/format';
 import { formatIst } from '@/lib/ist';
 import {
   closesLabel,
@@ -168,13 +167,13 @@ export default function ResidentPollScreen() {
           {showResults && results ? (
             <Card style={{ gap: space.lg }}>
               <PollResults
-                bars={resultBars(options, results.counts, myVote?.optionIds ?? [])}
+                bars={resultBars(options, results.counts, myVote?.optionIds ?? [], results.votedFlats)}
                 turnout={turnoutText(results.votedFlats, results.totalFlats)}
               />
               {myVote ? (
                 <Text style={[type.caption, { color: colors.textMuted }]}>
                   Voted by {myVote.by?.trim() || 'your flat'}
-                  {myVote.at ? ` · ${formatDateTime(myVote.at)}` : ''}
+                  {myVote.at ? ` · ${formatIst(myVote.at)}` : ''}
                 </Text>
               ) : (
                 <Text style={[type.caption, { color: colors.textMuted }]}>Your flat did not vote.</Text>

@@ -33,9 +33,19 @@ async function profileName(): Promise<string | null> {
 /**
  * Live SOS alerts for guards and admins, shown above the tabs so it is
  * visible on every screen. Renders nothing when there is nothing to show;
- * if the alerts cannot be loaded it says so instead of staying silent.
+ * if the alerts (or the society to watch) cannot be loaded it says so instead
+ * of staying silent, with a tap to retry.
  */
-export function SosBanner({ societyId }: { societyId: string | null }) {
+export function SosBanner({
+  societyId,
+  societyError = null,
+  onRetrySociety,
+}: {
+  societyId: string | null;
+  /** The society lookup failed: no alerts can be watched until it is retried. */
+  societyError?: string | null;
+  onRetrySociety?: () => void;
+}) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { alerts, error, refetch } = useOpenSos(societyId);
@@ -70,7 +80,16 @@ export function SosBanner({ societyId }: { societyId: string | null }) {
     }
   }
 
-  if (!societyId) return null;
+  if (!societyId) {
+    if (!societyError) return null;
+    return (
+      <View style={{ backgroundColor: colors.danger, paddingTop: insets.top + space.sm, paddingHorizontal: space.md, paddingBottom: space.sm }}>
+        <Pressable onPress={onRetrySociety} accessibilityRole="button" accessibilityLabel="Retry checking for SOS alerts">
+          <Text style={[type.label, { color: '#FFFFFF' }]}>Can&apos;t check for SOS alerts — tap to retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
   if (!alerts.length && !error) return null;
 
   return (

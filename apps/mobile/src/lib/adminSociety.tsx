@@ -47,31 +47,36 @@ export function AdminSocietyProvider({ children }: { children: ReactNode }) {
     let active = true;
     (async () => {
       setState((s) => ({ ...s, loading: true, error: null }));
-      const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData.session?.user.id ?? null;
-      if (!active) return;
-      if (!uid) return setState((s) => ({ ...s, loading: false, error: 'Not signed in' }));
-      const [m, p] = await Promise.all([
-        supabase
-          .from('memberships')
-          .select(ADMIN_SOCIETIES_SELECT)
-          .eq('profile_id', uid)
-          .eq('role', 'admin')
-          .order('society_id')
-          .limit(1),
-        supabase.from('profiles').select('name').eq('id', uid).maybeSingle(),
-      ]);
-      if (!active) return;
-      const err = m.error ?? p.error;
-      const row = m.data?.[0];
-      setState({
-        societyId: row?.society_id ?? null,
-        societyName: row?.societies?.name ?? null,
-        userId: uid,
-        userName: p.data?.name?.trim() || null,
-        loading: false,
-        error: err ? friendlyError(err.message) : row ? null : 'This account is not an admin of any society',
-      });
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const uid = sessionData.session?.user.id ?? null;
+        if (!active) return;
+        if (!uid) return setState((s) => ({ ...s, loading: false, error: 'Not signed in' }));
+        const [m, p] = await Promise.all([
+          supabase
+            .from('memberships')
+            .select(ADMIN_SOCIETIES_SELECT)
+            .eq('profile_id', uid)
+            .eq('role', 'admin')
+            .order('society_id')
+            .limit(1),
+          supabase.from('profiles').select('name').eq('id', uid).maybeSingle(),
+        ]);
+        if (!active) return;
+        const err = m.error ?? p.error;
+        const row = m.data?.[0];
+        setState({
+          societyId: row?.society_id ?? null,
+          societyName: row?.societies?.name ?? null,
+          userId: uid,
+          userName: p.data?.name?.trim() || null,
+          loading: false,
+          error: err ? friendlyError(err.message) : row ? null : 'This account is not an admin of any society',
+        });
+      } catch (e) {
+        // A thrown lookup must not leave the screens (and the SOS banner) blank forever.
+        if (active) setState((s) => ({ ...s, loading: false, error: friendlyError((e as Error | null)?.message ?? '') }));
+      }
     })();
     return () => {
       active = false;

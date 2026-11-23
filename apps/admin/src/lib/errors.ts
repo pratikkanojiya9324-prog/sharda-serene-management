@@ -47,6 +47,7 @@ const MESSAGES: Record<string, string> = {
   not_pending: 'This booking was already decided',
   outside_hours: 'It\'s closed at that time',
   slot_taken: 'Someone just booked this slot — pick another',
+  has_bookings: "Timings can't change while there are upcoming bookings",
   sos_closed: 'This alert is already closed',
   too_far_ahead: 'You can book up to 14 days ahead',
   unauthenticated: 'Your session has expired. Sign in again.',

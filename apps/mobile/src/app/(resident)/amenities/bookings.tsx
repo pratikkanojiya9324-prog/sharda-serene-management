@@ -20,7 +20,7 @@ type Booking = {
   status: 'pending' | 'confirmed' | 'rejected' | 'cancelled';
   booked_by_name: string | null;
   reject_reason: string | null;
-  amenities: { name: string } | null;
+  amenities: { name: string; slot_minutes: number } | null;
 };
 
 export default function MyBookingsScreen() {
@@ -98,7 +98,7 @@ export default function MyBookingsScreen() {
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={[type.heading, { color: colors.text }]}>{b.amenities?.name ?? 'Amenity'}</Text>
             <Text style={[type.caption, { color: colors.textMuted }]}>
-              {formatIst(b.start_at)} · {slotLabel(b.start_at, b.end_at)}
+              {formatIst(b.start_at)} · {slotLabel(b.start_at, b.end_at, b.amenities?.slot_minutes)}
             </Text>
           </View>
         </View>
